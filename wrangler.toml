@@ -26,3 +26,14 @@ CONSECUTIVE_MISSING_LIMIT = "4"
 #   TELEGRAM_BOT_TOKEN  - token from @BotFather
 #   TELEGRAM_CHAT_ID    - chat/channel id to post into
 #   ADMIN_TOKEN         - random string protecting the /debug and /run endpoints
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true
