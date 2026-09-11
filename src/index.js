@@ -247,6 +247,11 @@ const NOT_FOUND_HINTS = [
   "doesn't exist",
 ];
 
+const BROWSER_BLOCK_HINTS = [
+  "version of internet explorer that strava no longer supports",
+  "browser-detection-error",
+];
+
 /**
  * Parses semantic JSON-LD first, then falls back to common metadata /
  * label-anchored text matching. Keep the fallbacks current if Strava
@@ -323,6 +328,12 @@ async function checkChallenge(id, { includeRaw = false } = {}) {
 
     if (NOT_FOUND_HINTS.some((hint) => lower.includes(hint))) {
       return { status: "missing" };
+    }
+
+    if (BROWSER_BLOCK_HINTS.some((hint) => lower.includes(hint))) {
+      const result = { status: "error", reason: "browser-detection-error" };
+      if (includeRaw) result.rawText = clean(stripTags(html)).slice(0, 4000);
+      return result;
     }
 
     const parsed = parseChallenge(html, id, url);
