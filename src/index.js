@@ -327,147 +327,642 @@ function parseChallenge(html, id, url) {
   };
 }
 
-// ---------- Fetch + check one challenge id ----------
+// ---------- Strava fetch + response classification ----------
+
+const STRAVA_BASE_URL = "https://www.strava.com";
+const STRAVA_CHALLENGE_URL = (id) =>
+  `${STRAVA_BASE_URL}/challenges/${encodeURIComponent(id)}`;
+
+// Keep this conservative.
+// Do NOT try to spoof dozens of browser headers.
+const STRAVA_HEADERS = {
+  Accept: "text/html,application/xhtml+xml",
+  "Accept-Language": "en-US,en;q=0.9",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+    "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+};
+
+const BLOCK_HINTS = [
+  "browser-detection-error",
+  "version of internet explorer",
+  "strava no longer supports",
+  "please upgrade your web browser",
+];
+
+const RATE_LIMIT_HINTS = [
+  "too many requests",
+  "rate limit",
+  "rate-limit",
+];
+
+const TRANSIENT_HTTP_STATUS = new Set([
+  408,
+  425,
+  429,
+  500,
+  502,
+  503,
+  504,
+]);
+
+function classifyStravaHtml(html) {
+  const lower = (html || "").toLowerCase();
+
+  if (BLOCK_HINTS.some((hint) => lower.includes(hint))) {
+    return {
+      kind: "blocked",
+      reason: "browser-detection",
+    };
+  }
+
+  if (RATE_LIMIT_HINTS.some((hint) => lower.includes(hint))) {
+    return {
+      kind: "rate-limited",
+      reason: "rate-limit-page",
+    };
+  }
+
+  return {
+    kind: "html",
+    reason: null,
+  };
+}
+
+function retryDelay(attempt, baseMs = 5000, maxMs = 120000) {
+  // Exponential backoff + jitter.
+  const exponential = Math.min(
+    maxMs,
+    baseMs * Math.pow(2, Math.max(0, attempt - 1))
+  );
+
+  const jitter = Math.floor(Math.random() * Math.min(3000, exponential * 0.25));
+
+  return exponential + jitter;
+}
+
+async function sleep(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
- * Fetches one challenge URL directly (no browser needed — the fields we
- * need are present in the server-rendered HTML via JSON-LD/meta tags).
- * Returns { status: 'found', data } | { status: 'missing' } | { status: 'error', reason }
+ * Fetch one Strava challenge page.
+ *
+ * Important:
+ * - 404/410 = genuinely missing
+ * - 429/5xx/network errors = retryable error
+ * - Strava browser-detection page = blocked
+ * - valid HTML = parse it
+ *
+ * Never convert blocked/rate-limited/network errors into "missing".
  */
-async function checkChallenge(id, { includeRaw = false } = {}) {
-  const url = `https://www.strava.com/challenges/${id}`;
-  const requestUrl = `${url}.json`;
+async function fetchChallengePage(id, attempt = 1) {
+  const url = STRAVA_CHALLENGE_URL(id);
+
   try {
-    const response = await fetch(requestUrl, {
+    const response = await fetch(url, {
       redirect: "follow",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "no-cache",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Upgrade-Insecure-Requests": "1",
-      },
+      headers: STRAVA_HEADERS,
     });
 
+    const contentType =
+      response.headers.get("content-type") || "";
+
+    const finalUrl = response.url || url;
+
+    // Genuine missing challenge.
     if (response.status === 404 || response.status === 410) {
-      return { status: "missing" };
+      return {
+        kind: "missing",
+        id,
+        status: response.status,
+        url: finalUrl,
+      };
     }
-    const html = await response.text();
-    const lower = html.toLowerCase();
+
+    // Rate limiting.
+    if (response.status === 429) {
+      return {
+        kind: "retry",
+        id,
+        status: response.status,
+        reason: "HTTP 429",
+        retryAfter: parseRetryAfter(
+          response.headers.get("retry-after")
+        ),
+      };
+    }
+
+    // Other transient HTTP errors.
+    if (TRANSIENT_HTTP_STATUS.has(response.status)) {
+      return {
+        kind: "retry",
+        id,
+        status: response.status,
+        reason: `HTTP ${response.status}`,
+      };
+    }
+
+    // Any other non-success response.
     if (!response.ok) {
-      const upstreamReason = lower.includes("browser-detection-error")
-        ? "browser-detection-error"
-        : `HTTP ${response.status}`;
-      const result = { status: "error", reason: upstreamReason };
-      if (includeRaw) result.rawText = clean(stripTags(html)).slice(0, 4000);
-      return result;
+      return {
+        kind: "error",
+        id,
+        status: response.status,
+        reason: `HTTP ${response.status}`,
+      };
     }
 
-    if (NOT_FOUND_HINTS.some((hint) => lower.includes(hint))) {
-      return { status: "missing" };
+    const html = await response.text();
+
+    const classification = classifyStravaHtml(html);
+
+    if (classification.kind === "blocked") {
+      return {
+        kind: "blocked",
+        id,
+        status: response.status,
+        reason: classification.reason,
+        url: finalUrl,
+        contentType,
+        rawText: clean(stripTags(html)).slice(0, 1200),
+      };
     }
 
-    if (isBrowserBlockedPage(html)) {
-      const result = { status: "error", reason: "browser-detection-error" };
-      if (includeRaw) result.rawText = clean(stripTags(html)).slice(0, 4000);
-      return result;
+    if (classification.kind === "rate-limited") {
+      return {
+        kind: "retry",
+        id,
+        status: response.status,
+        reason: classification.reason,
+        url: finalUrl,
+        rawText: clean(stripTags(html)).slice(0, 1200),
+      };
     }
 
-    const parsed = parseChallenge(html, id, url);
-    if (!parsed) {
-      const result = { status: "error", reason: "parse-failed" };
-      if (includeRaw) result.rawText = clean(stripTags(html)).slice(0, 4000);
-      return result;
-    }
-
-    if (includeRaw) parsed.rawText = clean(stripTags(html)).slice(0, 4000);
-    return { status: "found", data: parsed };
+    return {
+      kind: "ok",
+      id,
+      html,
+      status: response.status,
+      url: finalUrl,
+      contentType,
+    };
   } catch (err) {
-    return { status: "error", reason: String(err && err.message ? err.message : err) };
+    return {
+      kind: "retry",
+      id,
+      reason: err?.message || String(err),
+    };
   }
+}
+
+function parseRetryAfter(value) {
+  if (!value) return null;
+
+  const seconds = Number(value);
+
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1000);
+  }
+
+  const date = Date.parse(value);
+
+  if (!Number.isNaN(date)) {
+    return Math.max(0, date - Date.now());
+  }
+
+  return null;
+}
+
+/**
+ * Fetch + parse one challenge.
+ *
+ * Returns:
+ *
+ *   { status: "found", data }
+ *   { status: "missing" }
+ *   { status: "blocked", ... }
+ *   { status: "retry", ... }
+ *   { status: "error", ... }
+ */
+async function checkChallenge(id, { includeRaw = false } = {}) {
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const result = await fetchChallengePage(id, attempt);
+
+    if (result.kind === "missing") {
+      return {
+        status: "missing",
+      };
+    }
+
+    if (result.kind === "blocked") {
+      return {
+        status: "blocked",
+        reason: result.reason,
+        httpStatus: result.status,
+        rawText: includeRaw ? result.rawText : undefined,
+      };
+    }
+
+    if (result.kind === "ok") {
+      const parsed = parseChallenge(
+        result.html,
+        id,
+        result.url
+      );
+
+      if (!parsed) {
+        const response = {
+          status: "error",
+          reason: "parse-failed",
+        };
+
+        if (includeRaw) {
+          response.rawText = clean(
+            stripTags(result.html)
+          ).slice(0, 4000);
+        }
+
+        return response;
+      }
+
+      if (includeRaw) {
+        parsed.rawText = clean(
+          stripTags(result.html)
+        ).slice(0, 4000);
+      }
+
+      return {
+        status: "found",
+        data: parsed,
+      };
+    }
+
+    // Retryable.
+    if (
+      result.kind === "retry" &&
+      attempt < maxAttempts
+    ) {
+      const delay =
+        result.retryAfter ??
+        retryDelay(attempt);
+
+      console.log(
+        `Strava retry: id=${id} attempt=${attempt} ` +
+        `reason=${result.reason} delay=${delay}ms`
+      );
+
+      await sleep(delay);
+      continue;
+    }
+
+    if (result.kind === "retry") {
+      return {
+        status: "retry",
+        reason: result.reason,
+        httpStatus: result.status,
+      };
+    }
+
+    return {
+      status: "error",
+      reason: result.reason || "unknown-error",
+    };
+  }
+
+  return {
+    status: "error",
+    reason: "retry-exhausted",
+  };
 }
 
 // ---------- Core scan ----------
 
 async function runScan(env, { verbose = false } = {}) {
   const state = await loadState(env);
-  const maxForward = parseInt(env.MAX_FORWARD_CHECKS, 10) || 40;
-  const maxRetry = parseInt(env.MAX_RETRY_CHECKS, 10) || 20;
-  const maxAttempts = parseInt(env.MAX_RETRY_ATTEMPTS, 10) || 10;
-  const missLimit = parseInt(env.CONSECUTIVE_MISSING_LIMIT, 10) || 4;
+
+  const maxForward =
+    parseInt(env.MAX_FORWARD_CHECKS, 10) || 20;
+
+  const maxRetry =
+    parseInt(env.MAX_RETRY_CHECKS, 10) || 10;
+
+  const maxAttempts =
+    parseInt(env.MAX_RETRY_ATTEMPTS, 10) || 10;
+
+  const missLimit =
+    parseInt(env.CONSECUTIVE_MISSING_LIMIT, 10) || 4;
+
+  // New safety valve.
+  // If Strava starts blocking us, stop the entire scan.
+  const maxBlockedResponses = 1;
 
   const log = [];
-  let notifiedCount = 0;
 
-  // ---- Phase 1: retry previously missing/error ids ----
+  let notifiedCount = 0;
+  let blockedResponses = 0;
+
+  // ------------------------------------------------------------
+  // Phase 1: retry previously failed IDs
+  // ------------------------------------------------------------
+
   const stillPending = [];
   let retried = 0;
+
   for (const item of state.retryQueue) {
     if (retried >= maxRetry) {
       stillPending.push(item);
       continue;
     }
+
     retried++;
+
     const result = await checkChallenge(item.id);
+
     if (result.status === "found") {
       await notifyTelegram(env, result.data);
+
       notifiedCount++;
-      log.push(`retry: ${item.id} FOUND`);
-    } else {
-      const attempts = (item.attempts || 0) + 1;
-      log.push(`retry: ${item.id} still ${result.status} (attempt ${attempts})`);
+
+      log.push(
+        `retry: ${item.id} FOUND`
+      );
+
+      continue;
+    }
+
+    if (result.status === "missing") {
+      log.push(
+        `retry: ${item.id} still missing`
+      );
+
+      const attempts =
+        (item.attempts || 0) + 1;
+
       if (attempts < maxAttempts) {
-        stillPending.push({ ...item, attempts, type: result.status });
+        stillPending.push({
+          ...item,
+          attempts,
+          type: "missing",
+        });
       } else {
-        log.push(`retry: ${item.id} gave up after ${attempts} attempts`);
+        log.push(
+          `retry: ${item.id} gave up after ${attempts} attempts`
+        );
       }
+
+      continue;
+    }
+
+    if (result.status === "blocked") {
+      blockedResponses++;
+
+      log.push(
+        `retry: ${item.id} BLOCKED (${result.reason})`
+      );
+
+      // Keep it in the queue.
+      stillPending.push({
+        ...item,
+        type: "blocked",
+      });
+
+      // Do not hammer Strava.
+      if (blockedResponses >= maxBlockedResponses) {
+        log.push(
+          "Strava appears to be blocking requests. " +
+          "Stopping scan."
+        );
+
+        break;
+      }
+
+      continue;
+    }
+
+    // retry/error
+    const attempts =
+      (item.attempts || 0) + 1;
+
+    log.push(
+      `retry: ${item.id} ${result.status} ` +
+      `(attempt ${attempts})`
+    );
+
+    if (attempts < maxAttempts) {
+      stillPending.push({
+        ...item,
+        attempts,
+        type: result.status,
+      });
+    } else {
+      log.push(
+        `retry: ${item.id} gave up after ${attempts} attempts`
+      );
     }
   }
+
   state.retryQueue = stillPending;
 
-  // ---- Phase 2: forward scan from frontier ----
+  // If Strava is blocking us during retry phase,
+  // do not start a forward scan.
+  if (blockedResponses >= maxBlockedResponses) {
+    await saveState(env, state);
+
+    return verbose
+      ? {
+          notifiedCount,
+          frontier: state.frontier,
+          retryQueueSize: state.retryQueue.length,
+          stopped: true,
+          stopReason: "strava-blocked",
+          log,
+        }
+      : {
+          notifiedCount,
+          frontier: state.frontier,
+          retryQueueSize: state.retryQueue.length,
+          stopped: true,
+          stopReason: "strava-blocked",
+        };
+  }
+
+  // ------------------------------------------------------------
+  // Phase 2: forward scan
+  // ------------------------------------------------------------
+
   let id = state.frontier;
+
   let consecutiveMissing = 0;
   let checked = 0;
 
-  while (checked < maxForward && consecutiveMissing < missLimit) {
+  while (
+    checked < maxForward &&
+    consecutiveMissing < missLimit
+  ) {
     const result = await checkChallenge(id);
+
     checked++;
+
+    // ----------------------------------------------------------
+    // FOUND
+    // ----------------------------------------------------------
 
     if (result.status === "found") {
       await notifyTelegram(env, result.data);
+
       notifiedCount++;
+
       consecutiveMissing = 0;
+
       state.frontier = id + 1;
-      log.push(`forward: ${id} FOUND`);
-    } else if (result.status === "missing") {
-      consecutiveMissing++;
-      state.retryQueue.push({ id, type: "missing", attempts: 0, firstSeen: Date.now() });
-      state.frontier = id + 1;
-      log.push(`forward: ${id} missing (streak ${consecutiveMissing})`);
-    } else {
-      consecutiveMissing++;
-      state.retryQueue.push({ id, type: "error", attempts: 0, firstSeen: Date.now() });
-      state.frontier = id + 1;
-      log.push(`forward: ${id} error (${result.reason}) (streak ${consecutiveMissing})`);
+
+      log.push(
+        `forward: ${id} FOUND`
+      );
+
+      // Small delay between successful requests.
+      // This prevents a tight request loop.
+      await sleep(
+        parseInt(env.REQUEST_DELAY_MS, 10) || 1500
+      );
+
+      id++;
+
+      continue;
     }
-    id++;
+
+    // ----------------------------------------------------------
+    // MISSING
+    // ----------------------------------------------------------
+
+    if (result.status === "missing") {
+      consecutiveMissing++;
+
+      state.retryQueue.push({
+        id,
+        type: "missing",
+        attempts: 0,
+        firstSeen: Date.now(),
+      });
+
+      state.frontier = id + 1;
+
+      log.push(
+        `forward: ${id} missing ` +
+        `(streak ${consecutiveMissing})`
+      );
+
+      id++;
+
+      continue;
+    }
+
+    // ----------------------------------------------------------
+    // BLOCKED
+    // ----------------------------------------------------------
+
+    if (result.status === "blocked") {
+      blockedResponses++;
+
+      // IMPORTANT:
+      // Do NOT advance frontier.
+      // Do NOT count this as missing.
+      // We want to retry this exact ID later.
+
+      state.retryQueue.push({
+        id,
+        type: "blocked",
+        attempts: 0,
+        firstSeen: Date.now(),
+      });
+
+      log.push(
+        `forward: ${id} BLOCKED ` +
+        `(${result.reason})`
+      );
+
+      break;
+    }
+
+    // ----------------------------------------------------------
+    // RETRYABLE ERROR
+    // ----------------------------------------------------------
+
+    if (result.status === "retry") {
+      state.retryQueue.push({
+        id,
+        type: "error",
+        attempts: 0,
+        firstSeen: Date.now(),
+      });
+
+      log.push(
+        `forward: ${id} RETRY ` +
+        `(${result.reason})`
+      );
+
+      // Critical:
+      // Do NOT increment consecutiveMissing.
+      // Do NOT move the frontier.
+      break;
+    }
+
+    // ----------------------------------------------------------
+    // PARSE / UNKNOWN ERROR
+    // ----------------------------------------------------------
+
+    state.retryQueue.push({
+      id,
+      type: "error",
+      attempts: 0,
+      firstSeen: Date.now(),
+    });
+
+    log.push(
+      `forward: ${id} ERROR ` +
+      `(${result.reason})`
+    );
+
+    // Again, this is not a missing challenge.
+    // Stop rather than blindly marching forward.
+    break;
   }
 
-  state.notifiedCount = (state.notifiedCount || 0) + notifiedCount;
+  state.notifiedCount =
+    (state.notifiedCount || 0) +
+    notifiedCount;
+
   await saveState(env, state);
 
   const summary = {
     notifiedCount,
     frontier: state.frontier,
     retryQueueSize: state.retryQueue.length,
+    checked,
+    consecutiveMissing,
+    stopped:
+      blockedResponses > 0 ||
+      checked < maxForward,
+    stopReason:
+      blockedResponses > 0
+        ? "strava-blocked"
+        : checked < maxForward
+        ? "request-error"
+        : null,
     log,
   };
-  return verbose ? summary : { notifiedCount, frontier: state.frontier, retryQueueSize: state.retryQueue.length };
+
+  return verbose
+    ? summary
+    : {
+        notifiedCount,
+        frontier: state.frontier,
+        retryQueueSize: state.retryQueue.length,
+      };
 }
 
 // ---------- Worker entrypoints ----------
