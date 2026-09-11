@@ -250,7 +250,13 @@ const NOT_FOUND_HINTS = [
 const BROWSER_BLOCK_HINTS = [
   "version of internet explorer that strava no longer supports",
   "browser-detection-error",
+  "upgrade your web browser",
 ];
+
+function isBrowserBlockedPage(html) {
+  const pageText = clean(decodeEntities(stripTags(html))).toLowerCase();
+  return BROWSER_BLOCK_HINTS.some((hint) => pageText.includes(hint));
+}
 
 /**
  * Parses semantic JSON-LD first, then falls back to common metadata /
@@ -330,7 +336,7 @@ async function checkChallenge(id, { includeRaw = false } = {}) {
       return { status: "missing" };
     }
 
-    if (BROWSER_BLOCK_HINTS.some((hint) => lower.includes(hint))) {
+    if (isBrowserBlockedPage(html)) {
       const result = { status: "error", reason: "browser-detection-error" };
       if (includeRaw) result.rawText = clean(stripTags(html)).slice(0, 4000);
       return result;
