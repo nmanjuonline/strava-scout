@@ -120,6 +120,34 @@ function parseJsonLd(html) {
   );
 }
 
+function parseReactProps(html) {
+  const match = html.match(/data-react-props=(['"])([\s\S]*?)\1/i);
+  if (!match) return null;
+  try {
+    return JSON.parse(decodeEntities(match[2]));
+  } catch {
+    return null;
+  }
+}
+
+function challengeDataFromReactProps(props) {
+  if (!props) return null;
+  const title = clean(props.header?.name);
+  const description = clean(props.header?.subtitle);
+  const calendarTitle = props.summary?.calendar?.title || "";
+  const sections = props.sections || [];
+  const qualifying = sections
+    .flatMap((section) => section.content || [])
+    .find((content) => content.key === "qualifyingActivities")
+    ?.qualifyingActivities;
+  const activities = Array.isArray(qualifying)
+    ? qualifying.map((item) => item.text || item.activityType).filter(Boolean).join(", ")
+    : null;
+
+  if (!title) return null;
+  return { title, description, calendarTitle, activities };
+}
+
 function formatDate(iso) {
   if (!iso) return null;
   const d = new Date(iso);
@@ -264,13 +292,16 @@ function isBrowserBlockedPage(html) {
  * changes its markup — use /debug/<id> to see what's actually on a page.
  */
 function parseChallenge(html, id, url) {
+  const embedded = challengeDataFromReactProps(parseReactProps(html));
   const ld = parseJsonLd(html);
   const data =
     ld.find((value) => value && (value.name || value.headline || value.description)) || {};
 
-  const title = clean(data.name || data.headline || meta(html, "og:title") || titleTag(html));
+  const title = clean(
+    embedded?.title || data.name || data.headline || meta(html, "og:title") || titleTag(html)
+  );
   const description = clean(
-    data.description || meta(html, "description") || meta(html, "og:description")
+    embedded?.description || data.description || meta(html, "description") || meta(html, "og:description")
   );
 
   if (!title || !description) return null;
@@ -278,9 +309,12 @@ function parseChallenge(html, id, url) {
   const text = clean(stripTags(html));
 
   const dateInterval =
-    dateRange(data.startDate, data.endDate) || dateIntervalFromText(text) || "Not published";
+    dateRange(data.startDate, data.endDate) ||
+    dateIntervalFromText(embedded?.calendarTitle || text) ||
+    "Not published";
 
-  const activities = activityListFromJsonLd(data) || activityListFromText(text) || "Not published";
+  const activities =
+    embedded?.activities || activityListFromJsonLd(data) || activityListFromText(text) || "Not published";
 
   return {
     id,
@@ -302,8 +336,9 @@ function parseChallenge(html, id, url) {
  */
 async function checkChallenge(id, { includeRaw = false } = {}) {
   const url = `https://www.strava.com/challenges/${id}`;
+  const requestUrl = `${url}.json`;
   try {
-    const response = await fetch(url, {
+    const response = await fetch(requestUrl, {
       redirect: "follow",
       headers: {
         "User-Agent":
