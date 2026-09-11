@@ -297,30 +297,19 @@ async function checkChallenge(id, { includeRaw = false } = {}) {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "no-cache",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Upgrade-Insecure-Requests": "1",
+        Accept: "text/html,application/xhtml+xml",
       },
     });
 
     if (response.status === 404 || response.status === 410) {
       return { status: "missing" };
     }
-    const html = await response.text();
-    const lower = html.toLowerCase();
     if (!response.ok) {
-      const upstreamReason = lower.includes("browser-detection-error")
-        ? "browser-detection-error"
-        : `HTTP ${response.status}`;
-      const result = { status: "error", reason: upstreamReason };
-      if (includeRaw) result.rawText = clean(stripTags(html)).slice(0, 4000);
-      return result;
+      return { status: "error", reason: `HTTP ${response.status}` };
     }
 
+    const html = await response.text();
+    const lower = html.toLowerCase();
     if (NOT_FOUND_HINTS.some((hint) => lower.includes(hint))) {
       return { status: "missing" };
     }
