@@ -16,7 +16,7 @@ binding = "MYBROWSER"
 # Workers KV — stores scan progress (frontier id + retry queue) between runs.
 [[kv_namespaces]]
 binding = "STATE_KV"
-id = "0d36f2ccb59e45ab9b322823e63da7b6"
+id = "a8ecd1e755114037b345517bf3cdd19c"
 
 [vars]
 # First challenge ID to start scanning from (inclusive).

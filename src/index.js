@@ -372,8 +372,16 @@ export default {
       if (url.searchParams.get("token") !== env.ADMIN_TOKEN) {
         return new Response("Unauthorized", { status: 401 });
       }
-      const result = await runScan(env, { verbose: true });
-      return Response.json(result);
+      try {
+        const result = await runScan(env, { verbose: true });
+        return Response.json(result);
+      } catch (err) {
+        console.error("run failed", err);
+        return Response.json(
+          { error: String(err && err.stack ? err.stack : err) },
+          { status: 500 }
+        );
+      }
     }
 
     // Inspect current state: GET /state?token=<ADMIN_TOKEN>
@@ -381,8 +389,16 @@ export default {
       if (url.searchParams.get("token") !== env.ADMIN_TOKEN) {
         return new Response("Unauthorized", { status: 401 });
       }
-      const state = await loadState(env);
-      return Response.json(state);
+      try {
+        const state = await loadState(env);
+        return Response.json(state);
+      } catch (err) {
+        console.error("state failed", err);
+        return Response.json(
+          { error: String(err && err.stack ? err.stack : err) },
+          { status: 500 }
+        );
+      }
     }
 
     // Render one id and return raw extraction for selector calibration:
@@ -392,12 +408,20 @@ export default {
         return new Response("Unauthorized", { status: 401 });
       }
       const id = url.pathname.split("/debug/")[1];
-      const browser = await puppeteer.launch(env.MYBROWSER);
       try {
-        const result = await checkChallenge(browser, id);
-        return Response.json(result);
-      } finally {
-        await browser.close();
+        const browser = await puppeteer.launch(env.MYBROWSER);
+        try {
+          const result = await checkChallenge(browser, id);
+          return Response.json(result);
+        } finally {
+          await browser.close();
+        }
+      } catch (err) {
+        console.error("debug failed", err);
+        return Response.json(
+          { error: String(err && err.stack ? err.stack : err) },
+          { status: 500 }
+        );
       }
     }
 
