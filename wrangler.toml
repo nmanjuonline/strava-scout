@@ -1,17 +1,11 @@
 name = "strava-scout"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
-compatibility_flags = ["nodejs_compat"]
 
 # Runs twice a day: 02:30 UTC and 14:30 UTC = 08:00 and 20:00 IST.
 # Edit the two numbers before the comma (hours, UTC) to change the times.
 [triggers]
 crons = ["30 2,14 * * *"]
-
-# Browser Rendering binding — lets the Worker launch a real (headless) browser
-# to render Strava's JS-driven challenge page.
-[browser]
-binding = "MYBROWSER"
 
 # Workers KV — stores scan progress (frontier id + retry queue) between runs.
 [[kv_namespaces]]

@@ -5,11 +5,13 @@ challenges by incrementing the id, and posts new ones to a Telegram chat.
 
 ## How it works
 
-Strava's challenge page is a JS-rendered (React) app — a plain `fetch()`
-only returns the `<meta>` tags (title, short blurb, start date), not the
-full date range or the "Qualifying Activities" list. So this Worker uses
-**Cloudflare Browser Rendering** to actually load and render each page,
-then reads the visible text off it.
+Strava's challenge page is a client-rendered app, but it still embeds
+**JSON-LD structured data** (`<script type="application/ld+json">`) and
+standard `<meta>` tags in the server-rendered HTML for SEO — so a plain
+`fetch()` is enough; no headless browser needed. (An earlier version of
+this project used Cloudflare Browser Rendering, but that hit a `429 Rate
+limit exceeded` launching browsers, and it's unnecessary overhead for
+this anyway — plain fetch is simpler, faster, and has no such limit.)
 
 Each run:
 1. **Retries** ids that previously came back "missing" or errored (up to
@@ -26,27 +28,34 @@ Each run:
 Nothing is ever notified twice — once an id is found, it's dropped from
 the queue and the frontier moves past it.
 
+Parsing order for each field, in `parseChallenge()`:
+- **Title / description**: JSON-LD `name`/`headline`/`description` →
+  `<meta>` tags → `<title>`.
+- **Date interval**: JSON-LD `startDate`/`endDate` → a same-line date
+  range found in the page text (e.g. "Sep 1 - Sep 30, 2026") → a
+  "Dates:" labeled line → the first two standalone dates found anywhere.
+- **Qualifying activities**: JSON-LD `activityType`/`sport`/`about`
+  fields → a keyword scan of the text right after a "Qualifying
+  Activities" label on the page.
+
 ## ⚠️ One thing to verify before relying on it
 
-I don't have visibility into Strava's actual rendered DOM/class names (I
-can only fetch the static, pre-JS HTML from here, which doesn't include
-the challenge widgets). The extraction in `src/index.js`
-(`extractDescription`, `extractDateInterval`, `extractActivities`) works
-off the **visible text** of the rendered page using label/pattern
-matching, which is more resilient to markup changes than CSS selectors,
-but you should sanity-check it once against a real page before trusting
-it fully. Use the built-in debug endpoint (see below) — if a field comes
-back `(not found — check /debug)`, open the `rawText` field it returns
-and adjust the relevant `extract*` function's regex/keywords to match
-what's actually on the page.
+I don't have visibility into Strava's actual JSON-LD schema or exact page
+text (I can only fetch a cleaned/simplified version of the page from
+here). The fallbacks above are pattern-based and should be resilient to
+most markup tweaks, but use the built-in debug endpoint (see below) once
+after deploying — if a field comes back `"Not published"` or the run
+logs a `parse-failed` error, open the `rawText` it returns and adjust the
+relevant function (`parseChallenge`, `dateIntervalFromText`, or
+`activityListFromText`) to match what's actually on the page.
 
 ## Setup
 
 ### 1. Prerequisites
 
-- A Cloudflare account (Workers **Free** plan is enough — Browser
-  Rendering gives you 10 browser-minutes/day free, plenty for twice-daily
-  scans of a handful of ids).
+- A Cloudflare account (Workers **Free** plan is enough — this no longer
+  uses Browser Rendering, just plain HTTP requests, so there's no
+  meaningful usage limit for twice-daily scans of a handful of ids).
 - Node.js installed locally.
 - A Telegram bot: message [@BotFather](https://t.me/BotFather), run
   `/newbot`, and save the token it gives you.
@@ -100,11 +109,11 @@ npx wrangler deploy
 curl "https://<your-worker>.workers.dev/debug/6386?token=<ADMIN_TOKEN>"
 ```
 
-This renders challenge id 6386 (the example you gave) and returns the
-extracted `title`, `description`, `dateInterval`, `activities`, plus the
-full `rawText` of the rendered page. Compare the extracted fields against
-what you see on strava.com/challenges/6386 — if anything's off, the
-`rawText` tells you exactly what to match in `extract*()`.
+This fetches + parses challenge id 6386 (the example you gave) and
+returns the extracted `title`, `description`, `dateInterval`,
+`activities`, plus `rawText` (the page's stripped text, first 4000
+chars). Compare against what you see on strava.com/challenges/6386 — if
+anything's `"Not published"`, `rawText` tells you exactly what to match.
 
 ### 8. Trigger a manual run any time
 
@@ -123,14 +132,13 @@ being revisited later).
 
 ## Notes / things you may want to tune
 
-- **Strava may rate-limit or block a headless browser** if you scan very
+- **Strava may rate-limit or block scripted requests** if scanned very
   aggressively. Twice a day over a handful of ids should be well under
-  any reasonable threshold, but if `/debug` starts returning odd results,
-  try adding a random delay between page loads or spacing runs further
-  apart.
-- If Strava ever changes its markup enough that visible-text parsing
-  breaks, `/debug/<id>` is your fastest way to see what changed and fix
-  the corresponding `extract*` function.
+  any reasonable threshold. If you see a wave of `error` results with an
+  HTTP 403/429 reason in `/state`, space runs further apart.
+- If Strava changes its markup enough that parsing breaks, `/debug/<id>`
+  is the fastest way to see what changed and fix the corresponding
+  function.
 - The retry queue keeps retrying an id up to `MAX_RETRY_ATTEMPTS` times
   before giving up on it entirely (default 10, i.e. ~5 days at 2
   runs/day) — raise this if you want ids checked for longer before being

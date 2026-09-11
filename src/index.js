@@ -1,5 +1,3 @@
-import puppeteer from "@cloudflare/puppeteer";
-
 const STATE_KEY = "scan-state-v1";
 
 // ---------- State helpers ----------
@@ -60,7 +58,122 @@ async function notifyTelegramText(env, text) {
   }
 }
 
-// ---------- Scraping ----------
+// ---------- HTML parsing helpers ----------
+
+function clean(str) {
+  return (str || "").replace(/\s+/g, " ").trim();
+}
+
+function decodeEntities(str) {
+  return (str || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function meta(html, nameOrProperty) {
+  const patterns = [
+    new RegExp(
+      `<meta[^>]+(?:name|property)=["']${nameOrProperty}["'][^>]+content=["']([^"']*)["']`,
+      "i"
+    ),
+    new RegExp(
+      `<meta[^>]+content=["']([^"']*)["'][^>]+(?:name|property)=["']${nameOrProperty}["']`,
+      "i"
+    ),
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m) return decodeEntities(m[1]);
+  }
+  return "";
+}
+
+function titleTag(html) {
+  const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return m ? decodeEntities(m[1]) : "";
+}
+
+function stripTags(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, "\n");
+}
+
+function parseJsonLd(html) {
+  const blocks = [
+    ...html.matchAll(
+      /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+    ),
+  ].flatMap((match) => {
+    try {
+      return [JSON.parse(match[1])];
+    } catch {
+      return [];
+    }
+  });
+  return blocks.flatMap((value) =>
+    Array.isArray(value) ? value : value?.["@graph"] || [value]
+  );
+}
+
+function formatDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function dateRange(start, end) {
+  const s = formatDate(start);
+  const e = formatDate(end);
+  if (s && e) return `${s} to ${e}`;
+  if (s) return `${s} (end date not found — check /debug)`;
+  return null;
+}
+
+function matchSection(text, regex) {
+  const m = text.match(regex);
+  return m ? clean(m[1]) : null;
+}
+
+// Same-line date range fallback, e.g. "Sep 1 - Sep 30, 2026",
+// "September 1, 2026 to September 30, 2026" — tried when JSON-LD has no
+// startDate/endDate.
+const DATE_RANGE_RE =
+  /([A-Z][a-z]{2,8}\s+\d{1,2}(?:,\s*\d{4})?)\s*(?:-|–|—|to)\s*([A-Z][a-z]{2,8}\s+\d{1,2},\s*\d{4})/;
+const DATE_RE = /([A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4})/g;
+
+function dateIntervalFromText(text) {
+  const rangeMatch = text.match(DATE_RANGE_RE);
+  if (rangeMatch) {
+    let start = rangeMatch[1];
+    const end = rangeMatch[2];
+    if (!/\d{4}/.test(start)) {
+      const year = end.match(/\d{4}/);
+      if (year) start = `${start}, ${year[0]}`;
+    }
+    return `${start} to ${end}`;
+  }
+  const labelMatch = matchSection(
+    text,
+    /(?:Challenge\s+)?Dates?\s*:?\s*([A-Z][a-z]{2,8}\.?\s+\d{1,2}[^|]{0,60})/i
+  );
+  if (labelMatch) return labelMatch;
+
+  const matches = text.match(DATE_RE);
+  if (matches && matches.length >= 2) return `${matches[0]} to ${matches[1]}`;
+  if (matches && matches.length === 1) return `${matches[0]} (end date not found — check /debug)`;
+  return null;
+}
 
 const ACTIVITY_KEYWORDS = [
   "Trail Run",
@@ -94,7 +207,39 @@ const ACTIVITY_KEYWORDS = [
   "Golf",
 ];
 
-const DATE_RE = /([A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4})/g;
+function activityListFromJsonLd(data) {
+  const candidates = [data.activityType, data.sport, data.about, data.additionalType]
+    .flat()
+    .filter(Boolean)
+    .map((v) => (typeof v === "string" ? v : v?.name))
+    .filter(Boolean);
+  if (!candidates.length) return null;
+  return clean(candidates.join(", "));
+}
+
+function activityListFromText(text) {
+  const idx = text.toLowerCase().indexOf("qualifying activities");
+  if (idx === -1) return null;
+  const window = text.slice(idx, idx + 500);
+
+  const found = ACTIVITY_KEYWORDS.map((kw) => ({
+    kw,
+    pos: window.indexOf(kw),
+  })).filter((x) => x.pos !== -1);
+  if (!found.length) return null;
+
+  const filtered = found.filter(({ kw, pos }) => {
+    return !found.some(
+      (other) =>
+        other.kw !== kw &&
+        other.kw.endsWith(kw) &&
+        other.pos + (other.kw.length - kw.length) === pos
+    );
+  });
+  filtered.sort((a, b) => a.pos - b.pos);
+  return filtered.map((x) => x.kw).join(", ");
+}
+
 const NOT_FOUND_HINTS = [
   "page not found",
   "we can't seem to find",
@@ -103,165 +248,84 @@ const NOT_FOUND_HINTS = [
 ];
 
 /**
- * Visits one challenge URL with a real headless browser and extracts data.
+ * Parses semantic JSON-LD first, then falls back to common metadata /
+ * label-anchored text matching. Keep the fallbacks current if Strava
+ * changes its markup — use /debug/<id> to see what's actually on a page.
+ */
+function parseChallenge(html, id, url) {
+  const ld = parseJsonLd(html);
+  const data =
+    ld.find((value) => value && (value.name || value.headline || value.description)) || {};
+
+  const title = clean(data.name || data.headline || meta(html, "og:title") || titleTag(html));
+  const description = clean(
+    data.description || meta(html, "description") || meta(html, "og:description")
+  );
+
+  if (!title || !description) return null;
+
+  const text = clean(stripTags(html));
+
+  const dateInterval =
+    dateRange(data.startDate, data.endDate) || dateIntervalFromText(text) || "Not published";
+
+  const activities = activityListFromJsonLd(data) || activityListFromText(text) || "Not published";
+
+  return {
+    id,
+    title,
+    description,
+    dateInterval,
+    activities,
+    url,
+    discoveredAt: new Date().toISOString(),
+  };
+}
+
+// ---------- Fetch + check one challenge id ----------
+
+/**
+ * Fetches one challenge URL directly (no browser needed — the fields we
+ * need are present in the server-rendered HTML via JSON-LD/meta tags).
  * Returns { status: 'found', data } | { status: 'missing' } | { status: 'error', reason }
  */
-async function checkChallenge(browser, id) {
+async function checkChallenge(id, { includeRaw = false } = {}) {
   const url = `https://www.strava.com/challenges/${id}`;
-  let page;
   try {
-    page = await browser.newPage();
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-    );
-
-    const response = await page.goto(url, {
-      waitUntil: "networkidle2",
-      timeout: 20000,
-    });
-
-    const status = response ? response.status() : 0;
-    if (status === 404 || status === 410) {
-      return { status: "missing" };
-    }
-
-    // Give the SPA a brief moment to hydrate/render challenge widgets.
-    // page.waitForTimeout() was removed in newer Puppeteer versions —
-    // a plain delay does the same job here.
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    const extracted = await page.evaluate(() => {
-      const ogTitle = document.querySelector('meta[property="og:title"]')?.content || "";
-      const ogDesc = document.querySelector('meta[property="og:description"]')?.content || "";
-      const bodyText = document.body ? document.body.innerText : "";
-      return { ogTitle, ogDesc, bodyText };
-    });
-
-    const bodyLower = extracted.bodyText.toLowerCase();
-    if (NOT_FOUND_HINTS.some((hint) => bodyLower.includes(hint))) {
-      return { status: "missing" };
-    }
-
-    const title = extracted.ogTitle.replace(/\s*-\s*Strava Challenges\s*$/i, "").trim();
-    if (!title) {
-      // Couldn't find a title at all — treat as a soft failure to retry later
-      // rather than a confirmed "missing" (avoids false positives from a slow
-      // render or a Strava layout change).
-      return { status: "error", reason: "no-title" };
-    }
-
-    const description = extractDescription(extracted.bodyText, extracted.ogDesc);
-    const dateInterval = extractDateInterval(extracted.bodyText);
-    const activities = extractActivities(extracted.bodyText);
-
-    return {
-      status: "found",
-      data: {
-        id,
-        url,
-        title,
-        description,
-        dateInterval,
-        activities,
-        rawText: extracted.bodyText, // handy for /debug, not sent to Telegram
+    const response = await fetch(url, {
+      redirect: "follow",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
       },
-    };
+    });
+
+    if (response.status === 404 || response.status === 410) {
+      return { status: "missing" };
+    }
+    if (!response.ok) {
+      return { status: "error", reason: `HTTP ${response.status}` };
+    }
+
+    const html = await response.text();
+    const lower = html.toLowerCase();
+    if (NOT_FOUND_HINTS.some((hint) => lower.includes(hint))) {
+      return { status: "missing" };
+    }
+
+    const parsed = parseChallenge(html, id, url);
+    if (!parsed) {
+      const result = { status: "error", reason: "parse-failed" };
+      if (includeRaw) result.rawText = clean(stripTags(html)).slice(0, 4000);
+      return result;
+    }
+
+    if (includeRaw) parsed.rawText = clean(stripTags(html)).slice(0, 4000);
+    return { status: "found", data: parsed };
   } catch (err) {
     return { status: "error", reason: String(err && err.message ? err.message : err) };
-  } finally {
-    if (page) {
-      try {
-        await page.close();
-      } catch (_) {
-        /* ignore */
-      }
-    }
   }
-}
-
-function extractDescription(bodyText, ogDescFallback) {
-  // Look for a line right after the "Qualifying Activities" label going
-  // backwards, or a line that starts with a typical goal verb. This is
-  // heuristic because Strava's markup isn't publicly documented — adjust
-  // here if you see mismatches via the /debug endpoint.
-  const lines = bodyText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  const goalLine = lines.find((l) => /^(Complete|Run|Ride|Walk|Log|Climb|Cover|Reach)\b/i.test(l));
-  if (goalLine && goalLine.length < 120) return goalLine;
-
-  return ogDescFallback.trim() || "(not found — check /debug)";
-}
-
-// Matches a same-line date range first, e.g. "Sep 1 - Sep 30, 2026",
-// "September 1, 2026 to September 30, 2026". This is tried before the
-// looser fallback below because it correctly pairs a start/end that
-// belong together, rather than grabbing the first two unrelated dates
-// anywhere on the page (e.g. a copyright year elsewhere in the DOM).
-const DATE_RANGE_RE =
-  /([A-Z][a-z]{2,8}\s+\d{1,2}(?:,\s*\d{4})?)\s*(?:-|–|—|to)\s*([A-Z][a-z]{2,8}\s+\d{1,2},\s*\d{4})/;
-
-function extractDateInterval(bodyText) {
-  const rangeMatch = bodyText.match(DATE_RANGE_RE);
-  if (rangeMatch) {
-    let start = rangeMatch[1];
-    const end = rangeMatch[2];
-    if (!/\d{4}/.test(start)) {
-      // Start date had no year of its own (e.g. "Sep 1 - Sep 30, 2026") —
-      // borrow the year from the end date so it's unambiguous.
-      const year = end.match(/\d{4}/);
-      if (year) start = `${start}, ${year[0]}`;
-    }
-    return `${start} to ${end}`;
-  }
-
-  // Fallback: first two standalone full dates found anywhere on the page.
-  const matches = bodyText.match(DATE_RE);
-  if (matches && matches.length >= 2) {
-    return `${matches[0]} to ${matches[1]}`;
-  }
-  if (matches && matches.length === 1) {
-    return `${matches[0]} (end date not found — check /debug)`;
-  }
-  return "(not found — check /debug)";
-}
-
-function extractActivities(bodyText) {
-  const idx = bodyText.toLowerCase().indexOf("qualifying activities");
-  if (idx === -1) return "(not found — check /debug)";
-
-  // Bounded window after the label. If /debug shows activities getting
-  // cut off or a wrong tail keyword bleeding in from further down the
-  // page, adjust this window (or better, cut it off at the next heading
-  // you see in rawText, e.g. "Leaderboard" or "Rules").
-  const searchText = bodyText.slice(idx, idx + 500);
-
-  const foundWithPos = ACTIVITY_KEYWORDS.map((kw) => ({
-    kw,
-    pos: searchText.indexOf(kw),
-  })).filter((x) => x.pos !== -1);
-
-  if (!foundWithPos.length) return "(not found — check /debug)";
-
-  // Drop a generic keyword (e.g. "Run") when it's really just the tail of
-  // a more specific match at the same position (e.g. "Trail Run" also
-  // contains "Run" ending at the same spot) — avoids double-counting one
-  // chip as two activities.
-  const filtered = foundWithPos.filter(({ kw, pos }) => {
-    return !foundWithPos.some(
-      (other) =>
-        other.kw !== kw &&
-        other.kw.endsWith(kw) &&
-        other.pos + (other.kw.length - kw.length) === pos
-    );
-  });
-
-  // Preserve the order the activities appear on the page rather than the
-  // order of ACTIVITY_KEYWORDS, so the message reads naturally.
-  filtered.sort((a, b) => a.pos - b.pos);
-  return filtered.map((x) => x.kw).join(", ");
 }
 
 // ---------- Core scan ----------
@@ -273,73 +337,66 @@ async function runScan(env, { verbose = false } = {}) {
   const maxAttempts = parseInt(env.MAX_RETRY_ATTEMPTS, 10) || 10;
   const missLimit = parseInt(env.CONSECUTIVE_MISSING_LIMIT, 10) || 4;
 
-  const browser = await puppeteer.launch(env.MYBROWSER);
   const log = [];
   let notifiedCount = 0;
 
-  try {
-    // ---- Phase 1: retry previously missing/error ids ----
-    const stillPending = [];
-    let retried = 0;
-    for (const item of state.retryQueue) {
-      if (retried >= maxRetry) {
-        stillPending.push(item);
-        continue;
-      }
-      retried++;
-      const result = await checkChallenge(browser, item.id);
-      if (result.status === "found") {
-        await notifyTelegram(env, result.data);
-        notifiedCount++;
-        log.push(`retry: ${item.id} FOUND`);
+  // ---- Phase 1: retry previously missing/error ids ----
+  const stillPending = [];
+  let retried = 0;
+  for (const item of state.retryQueue) {
+    if (retried >= maxRetry) {
+      stillPending.push(item);
+      continue;
+    }
+    retried++;
+    const result = await checkChallenge(item.id);
+    if (result.status === "found") {
+      await notifyTelegram(env, result.data);
+      notifiedCount++;
+      log.push(`retry: ${item.id} FOUND`);
+    } else {
+      const attempts = (item.attempts || 0) + 1;
+      log.push(`retry: ${item.id} still ${result.status} (attempt ${attempts})`);
+      if (attempts < maxAttempts) {
+        stillPending.push({ ...item, attempts, type: result.status });
       } else {
-        const attempts = (item.attempts || 0) + 1;
-        log.push(`retry: ${item.id} still ${result.status} (attempt ${attempts})`);
-        if (attempts < maxAttempts) {
-          stillPending.push({ ...item, attempts, type: result.status });
-        } else {
-          log.push(`retry: ${item.id} gave up after ${attempts} attempts`);
-        }
+        log.push(`retry: ${item.id} gave up after ${attempts} attempts`);
       }
     }
-    state.retryQueue = stillPending;
-
-    // ---- Phase 2: forward scan from frontier ----
-    let id = state.frontier;
-    let consecutiveMissing = 0;
-    let checked = 0;
-
-    while (checked < maxForward && consecutiveMissing < missLimit) {
-      const result = await checkChallenge(browser, id);
-      checked++;
-
-      if (result.status === "found") {
-        await notifyTelegram(env, result.data);
-        notifiedCount++;
-        consecutiveMissing = 0;
-        state.frontier = id + 1;
-        log.push(`forward: ${id} FOUND`);
-      } else if (result.status === "missing") {
-        consecutiveMissing++;
-        state.retryQueue.push({ id, type: "missing", attempts: 0, firstSeen: Date.now() });
-        state.frontier = id + 1;
-        log.push(`forward: ${id} missing (streak ${consecutiveMissing})`);
-      } else {
-        // error: don't let it silently block forward progress, but do
-        // count it like a miss so a run of dead requests still halts.
-        consecutiveMissing++;
-        state.retryQueue.push({ id, type: "error", attempts: 0, firstSeen: Date.now() });
-        state.frontier = id + 1;
-        log.push(`forward: ${id} error (${result.reason}) (streak ${consecutiveMissing})`);
-      }
-      id++;
-    }
-
-    state.notifiedCount = (state.notifiedCount || 0) + notifiedCount;
-    await saveState(env, state);
-  } finally {
-    await browser.close();
   }
+  state.retryQueue = stillPending;
+
+  // ---- Phase 2: forward scan from frontier ----
+  let id = state.frontier;
+  let consecutiveMissing = 0;
+  let checked = 0;
+
+  while (checked < maxForward && consecutiveMissing < missLimit) {
+    const result = await checkChallenge(id);
+    checked++;
+
+    if (result.status === "found") {
+      await notifyTelegram(env, result.data);
+      notifiedCount++;
+      consecutiveMissing = 0;
+      state.frontier = id + 1;
+      log.push(`forward: ${id} FOUND`);
+    } else if (result.status === "missing") {
+      consecutiveMissing++;
+      state.retryQueue.push({ id, type: "missing", attempts: 0, firstSeen: Date.now() });
+      state.frontier = id + 1;
+      log.push(`forward: ${id} missing (streak ${consecutiveMissing})`);
+    } else {
+      consecutiveMissing++;
+      state.retryQueue.push({ id, type: "error", attempts: 0, firstSeen: Date.now() });
+      state.frontier = id + 1;
+      log.push(`forward: ${id} error (${result.reason}) (streak ${consecutiveMissing})`);
+    }
+    id++;
+  }
+
+  state.notifiedCount = (state.notifiedCount || 0) + notifiedCount;
+  await saveState(env, state);
 
   const summary = {
     notifiedCount,
@@ -347,9 +404,7 @@ async function runScan(env, { verbose = false } = {}) {
     retryQueueSize: state.retryQueue.length,
     log,
   };
-
-  if (verbose) return summary;
-  return { notifiedCount, frontier: state.frontier, retryQueueSize: state.retryQueue.length };
+  return verbose ? summary : { notifiedCount, frontier: state.frontier, retryQueueSize: state.retryQueue.length };
 }
 
 // ---------- Worker entrypoints ----------
@@ -359,7 +414,7 @@ export default {
     ctx.waitUntil(
       runScan(env).catch((err) => {
         console.error("scan failed", err);
-        return notifyTelegramText(env, `⚠️ Strava challenge scan failed: ${err}`);
+        return notifyTelegramText(env, `⚠️ Strava Scout scan failed: ${err}`);
       })
     );
   },
@@ -367,7 +422,6 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // Manually trigger a scan: GET /run?token=<ADMIN_TOKEN>
     if (url.pathname === "/run") {
       if (url.searchParams.get("token") !== env.ADMIN_TOKEN) {
         return new Response("Unauthorized", { status: 401 });
@@ -377,14 +431,10 @@ export default {
         return Response.json(result);
       } catch (err) {
         console.error("run failed", err);
-        return Response.json(
-          { error: String(err && err.stack ? err.stack : err) },
-          { status: 500 }
-        );
+        return Response.json({ error: String(err && err.stack ? err.stack : err) }, { status: 500 });
       }
     }
 
-    // Inspect current state: GET /state?token=<ADMIN_TOKEN>
     if (url.pathname === "/state") {
       if (url.searchParams.get("token") !== env.ADMIN_TOKEN) {
         return new Response("Unauthorized", { status: 401 });
@@ -394,34 +444,24 @@ export default {
         return Response.json(state);
       } catch (err) {
         console.error("state failed", err);
-        return Response.json(
-          { error: String(err && err.stack ? err.stack : err) },
-          { status: 500 }
-        );
+        return Response.json({ error: String(err && err.stack ? err.stack : err) }, { status: 500 });
       }
     }
 
-    // Render one id and return raw extraction for selector calibration:
-    // GET /debug/6386?token=<ADMIN_TOKEN>
+    // Fetch + parse one id and return the extracted fields plus raw
+    // stripped text, for calibrating the parsing logic against a live
+    // page: GET /debug/6386?token=<ADMIN_TOKEN>
     if (url.pathname.startsWith("/debug/")) {
       if (url.searchParams.get("token") !== env.ADMIN_TOKEN) {
         return new Response("Unauthorized", { status: 401 });
       }
       const id = url.pathname.split("/debug/")[1];
       try {
-        const browser = await puppeteer.launch(env.MYBROWSER);
-        try {
-          const result = await checkChallenge(browser, id);
-          return Response.json(result);
-        } finally {
-          await browser.close();
-        }
+        const result = await checkChallenge(id, { includeRaw: true });
+        return Response.json(result);
       } catch (err) {
         console.error("debug failed", err);
-        return Response.json(
-          { error: String(err && err.stack ? err.stack : err) },
-          { status: 500 }
-        );
+        return Response.json({ error: String(err && err.stack ? err.stack : err) }, { status: 500 });
       }
     }
 
@@ -429,7 +469,7 @@ export default {
       "Strava Scout.\n" +
         "GET /run?token=...   trigger a scan now\n" +
         "GET /state?token=... view current scan state\n" +
-        "GET /debug/<id>?token=... render one challenge id and return raw extraction\n",
+        "GET /debug/<id>?token=... fetch + parse one challenge id and return raw extraction\n",
       { headers: { "content-type": "text/plain" } }
     );
   },
