@@ -1,0 +1,34 @@
+name = "strava-scout"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Runs twice a day: 02:30 UTC and 14:30 UTC = 08:00 and 20:00 IST.
+# Edit the two numbers before the comma (hours, UTC) to change the times.
+[triggers]
+crons = ["30 2,14 * * *"]
+
+# Browser Rendering binding — lets the Worker launch a real (headless) browser
+# to render Strava's JS-driven challenge page.
+[browser]
+binding = "MYBROWSER"
+
+# Workers KV — stores scan progress (frontier id + retry queue) between runs.
+[[kv_namespaces]]
+binding = "STATE_KV"
+id = "0d36f2ccb59e45ab9b322823e63da7b6"
+
+[vars]
+# First challenge ID to start scanning from (inclusive).
+START_ID = "6340"
+# Safety caps per run so a single cron invocation can't run forever.
+MAX_FORWARD_CHECKS = "40"
+MAX_RETRY_CHECKS = "20"
+MAX_RETRY_ATTEMPTS = "10"
+# How many consecutive "not found" ids stop the forward scan for this run.
+CONSECUTIVE_MISSING_LIMIT = "4"
+
+# Secrets (set these with `wrangler secret put <NAME>`, never commit them):
+#   TELEGRAM_BOT_TOKEN  - token from @BotFather
+#   TELEGRAM_CHAT_ID    - chat/channel id to post into
+#   ADMIN_TOKEN         - random string protecting the /debug and /run endpoints
