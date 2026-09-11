@@ -22,12 +22,11 @@ async function saveState(env, state) {
 
 async function notifyTelegram(env, data) {
   const text =
-    `New Challenge Detected!\n` +
-    `Title: ${data.title}\n` +
-    `Description: ${data.description}\n` +
-    `Date Interval: ${data.dateInterval}\n` +
-    `Qualifying Activities: ${data.activities}\n` +
-    `${data.url}`;
+    `**Title:** ${data.title}\n` +
+    `**Description:** ${data.description}\n` +
+    `**Date Interval:** ${data.dateInterval}\n` +
+    `**Qualifying Activities:** ${data.activities}\n` +
+    `**URL:** ${data.url}`;
 
   const resp = await fetch(
     `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
