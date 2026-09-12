@@ -9,23 +9,28 @@ crons = ["30 2,14 * * *"]
 
 # Workers KV — stores scan progress (frontier id + retry queue) between runs.
 [[kv_namespaces]]
-binding = "STATE_KV"
-id = "a8ecd1e755114037b345517bf3cdd19c"
+binding = "STRAVA_SCOUT_STATE_KV"
+id = "6985a84a26e343458914dba63b647919"
 
 [vars]
 # First challenge ID to start scanning from (inclusive).
-START_ID = "6340"
-# Safety caps per run so a single cron invocation can't run forever.
-MAX_FORWARD_CHECKS = "40"
-MAX_RETRY_CHECKS = "20"
+START_ID = "6425"
+# Safety caps per run.
+MAX_FORWARD_CHECKS = "15"
+MAX_RETRY_CHECKS = "10"
 MAX_RETRY_ATTEMPTS = "10"
 # How many consecutive "not found" ids stop the forward scan for this run.
 CONSECUTIVE_MISSING_LIMIT = "4"
+# Spacing between Browser Rendering REST calls, in ms. Free plan Quick
+# Actions are limited to 1 request/10s — 10500 leaves a small margin.
+REQUEST_DELAY_MS = "10500"
 
 # Secrets (set these with `wrangler secret put <NAME>`, never commit them):
 #   TELEGRAM_BOT_TOKEN  - token from @BotFather
 #   TELEGRAM_CHAT_ID    - chat/channel id to post into
 #   ADMIN_TOKEN         - random string protecting the /debug and /run endpoints
+#   CF_ACCOUNT_ID       - your Cloudflare account id (dashboard sidebar)
+#   CF_API_TOKEN        - API token scoped to "Account > Browser Rendering > Edit"
 
 [observability.logs]
 enabled = true

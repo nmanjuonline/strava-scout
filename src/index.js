@@ -3,7 +3,7 @@ const STATE_KEY = "scan-state-v1";
 // ---------- State helpers ----------
 
 async function loadState(env) {
-  const raw = await env.STATE_KV.get(STATE_KEY, "json");
+  const raw = await env.STRAVA_SCOUT_STATE_KV.get(STATE_KEY, "json");
   if (raw) return raw;
   return {
     frontier: parseInt(env.START_ID, 10) || 1,
@@ -13,7 +13,7 @@ async function loadState(env) {
 }
 
 async function saveState(env, state) {
-  await env.STATE_KV.put(STATE_KEY, JSON.stringify(state));
+  await env.STRAVA_SCOUT_STATE_KV.put(STATE_KEY, JSON.stringify(state));
 }
 
 // ---------- Telegram ----------
@@ -247,6 +247,18 @@ const NOT_FOUND_HINTS = [
   "doesn't exist",
 ];
 
+// Strava serves a generic "you need a modern browser / JavaScript" shell
+// (misleadingly mentions Internet Explorer) to requests it doesn't treat
+// as a real browser — no meta tags, no JSON-LD, just nav/footer. Plain
+// fetch() from a Worker gets this every time regardless of headers sent
+// (confirmed by testing), which is why this now uses a real headless
+// browser (Browser Rendering) instead — that's a genuine Chromium
+// instance with a real fingerprint, not just believable headers.
+const BLOCKED_HINTS = [
+  "internet explorer that strava no longer supports",
+  "please upgrade your web browser",
+];
+
 /**
  * Parses semantic JSON-LD first, then falls back to common metadata /
  * label-anchored text matching. Keep the fallbacks current if Strava
@@ -282,34 +294,86 @@ function parseChallenge(html, id, url) {
   };
 }
 
-// ---------- Fetch + check one challenge id ----------
+// ---------- Browser Rendering REST API ("Quick Actions") ----------
+//
+// No puppeteer package or Workers [browser] binding needed — this is a
+// plain fetch() to Cloudflare's own API, which runs the page through a
+// real headless Chromium instance server-side and hands back the
+// rendered HTML. Needs two secrets: CF_ACCOUNT_ID and CF_API_TOKEN (a
+// token scoped to "Account > Browser Rendering > Edit").
+//
+// Free plan limit for this endpoint: 1 request every 10 seconds (see
+// REQUEST_DELAY_MS in wrangler.toml) — a 429 here is retried below.
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchRenderedHtml(env, targetUrl, attempt = 0) {
+  const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/browser-rendering/content`;
+
+  const resp = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.CF_API_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      url: targetUrl,
+      gotoOptions: { waitUntil: "networkidle0", timeout: 20000 },
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      setExtraHTTPHeaders: { "Accept-Language": "en-US,en;q=0.9" },
+    }),
+  });
+
+  if (resp.status === 429 && attempt < 3) {
+    const retryAfter = Number(resp.headers.get("Retry-After")) || 10;
+    await sleep((retryAfter + 1) * 1000);
+    return fetchRenderedHtml(env, targetUrl, attempt + 1);
+  }
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`Browser Rendering API HTTP ${resp.status}: ${body.slice(0, 200)}`);
+  }
+
+  const data = await resp.json();
+  if (!data.success) {
+    const msg = (data.errors || []).map((e) => e.message).join("; ") || "unknown error";
+    throw new Error(`Browser Rendering API error: ${msg}`);
+  }
+
+  // The API wraps the HTML string in `result` (sometimes `result.content`
+  // depending on endpoint version) — handle both.
+  return typeof data.result === "string" ? data.result : data.result?.content || "";
+}
+
+// ---------- Check one challenge id (real browser render) ----------
 
 /**
- * Fetches one challenge URL directly (no browser needed — the fields we
- * need are present in the server-rendered HTML via JSON-LD/meta tags).
+ * Loads one challenge URL through Browser Rendering (bypasses the
+ * bot/JS-required wall a plain fetch() hits) and parses the rendered
+ * HTML the same way a static-fetch approach would have.
  * Returns { status: 'found', data } | { status: 'missing' } | { status: 'error', reason }
+ *
+ * Note: this endpoint doesn't surface the target page's raw HTTP status
+ * code, so "missing" is detected purely from page text (NOT_FOUND_HINTS)
+ * rather than a 404 status check. If Strava's actual "no such challenge"
+ * page uses different wording, use /debug/<a-known-missing-id> to see
+ * the real text and adjust NOT_FOUND_HINTS.
  */
-async function checkChallenge(id, { includeRaw = false } = {}) {
+async function checkChallenge(env, id, { includeRaw = false } = {}) {
   const url = `https://www.strava.com/challenges/${id}`;
   try {
-    const response = await fetch(url, {
-      redirect: "follow",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
-
-    if (response.status === 404 || response.status === 410) {
-      return { status: "missing" };
-    }
-    if (!response.ok) {
-      return { status: "error", reason: `HTTP ${response.status}` };
-    }
-
-    const html = await response.text();
+    const html = await fetchRenderedHtml(env, url);
     const lower = html.toLowerCase();
+
+    if (BLOCKED_HINTS.some((hint) => lower.includes(hint))) {
+      const result = { status: "error", reason: "blocked-or-js-required" };
+      if (includeRaw) result.rawText = clean(stripTags(html)).slice(0, 4000);
+      return result;
+    }
     if (NOT_FOUND_HINTS.some((hint) => lower.includes(hint))) {
       return { status: "missing" };
     }
@@ -332,13 +396,22 @@ async function checkChallenge(id, { includeRaw = false } = {}) {
 
 async function runScan(env, { verbose = false } = {}) {
   const state = await loadState(env);
-  const maxForward = parseInt(env.MAX_FORWARD_CHECKS, 10) || 40;
-  const maxRetry = parseInt(env.MAX_RETRY_CHECKS, 10) || 20;
+  const maxForward = parseInt(env.MAX_FORWARD_CHECKS, 10) || 15;
+  const maxRetry = parseInt(env.MAX_RETRY_CHECKS, 10) || 10;
   const maxAttempts = parseInt(env.MAX_RETRY_ATTEMPTS, 10) || 10;
   const missLimit = parseInt(env.CONSECUTIVE_MISSING_LIMIT, 10) || 4;
+  const requestDelayMs = parseInt(env.REQUEST_DELAY_MS, 10) || 10500;
 
   const log = [];
   let notifiedCount = 0;
+  let firstRequest = true;
+
+  // Free plan Quick Actions limit is 1 request/10s — space calls out
+  // rather than firing them back-to-back and hitting 429s.
+  async function throttle() {
+    if (!firstRequest) await sleep(requestDelayMs);
+    firstRequest = false;
+  }
 
   // ---- Phase 1: retry previously missing/error ids ----
   const stillPending = [];
@@ -349,7 +422,8 @@ async function runScan(env, { verbose = false } = {}) {
       continue;
     }
     retried++;
-    const result = await checkChallenge(item.id);
+    await throttle();
+    const result = await checkChallenge(env, item.id);
     if (result.status === "found") {
       await notifyTelegram(env, result.data);
       notifiedCount++;
@@ -372,7 +446,8 @@ async function runScan(env, { verbose = false } = {}) {
   let checked = 0;
 
   while (checked < maxForward && consecutiveMissing < missLimit) {
-    const result = await checkChallenge(id);
+    await throttle();
+    const result = await checkChallenge(env, id);
     checked++;
 
     if (result.status === "found") {
@@ -448,16 +523,16 @@ export default {
       }
     }
 
-    // Fetch + parse one id and return the extracted fields plus raw
-    // stripped text, for calibrating the parsing logic against a live
-    // page: GET /debug/6386?token=<ADMIN_TOKEN>
+    // Load + parse one id via Browser Rendering and return the extracted
+    // fields plus raw stripped text, for calibrating the parsing logic
+    // against a live page: GET /debug/6386?token=<ADMIN_TOKEN>
     if (url.pathname.startsWith("/debug/")) {
       if (url.searchParams.get("token") !== env.ADMIN_TOKEN) {
         return new Response("Unauthorized", { status: 401 });
       }
       const id = url.pathname.split("/debug/")[1];
       try {
-        const result = await checkChallenge(id, { includeRaw: true });
+        const result = await checkChallenge(env, id, { includeRaw: true });
         return Response.json(result);
       } catch (err) {
         console.error("debug failed", err);
