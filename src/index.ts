@@ -97,7 +97,7 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
 
 
 
-async function scan(env: Env): Promise<{ found: number; missing: number; errors: number }> {
+async function scan(env: Env, isManual: boolean = false): Promise<{ found: number; missing: number; errors: number }> {
     const fetchBatchSize = env.FETCH_BATCH_SIZE ? Number(env.FETCH_BATCH_SIZE) : 8;
     const stateKeys = ["next_id", "consecutive_missing"];
     const stateRows = await env.DB.prepare(`SELECT key, value FROM scan_state WHERE key IN (?, ?)`).bind(...stateKeys).all<{key: string, value: string}>();
@@ -120,7 +120,13 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
     ).bind(new Date().toISOString()).run();
     
     // Pick all missing/errored records without a DB limit
-    const retryRows = await env.DB.prepare(`SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY next_retry_at ASC`).bind(new Date().toISOString()).all<{ id: number }>();
+    const retryQuery = isManual 
+        ? `SELECT id FROM attempts WHERE status != 'found' ORDER BY next_retry_at ASC`
+        : `SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY next_retry_at ASC`;
+    const retryRows = isManual 
+        ? await env.DB.prepare(retryQuery).all<{ id: number }>()
+        : await env.DB.prepare(retryQuery).bind(new Date().toISOString()).all<{ id: number }>();
+    
     let retryIdsArray = (retryRows.results ?? []).map((row) => row.id);
     
     // Cloudflare limits subrequests to 50 per Worker invocation (Free tier).
@@ -354,7 +360,7 @@ export default {
         }
         if (url.pathname === "/api/scan" && request.method === "POST") {
             //if (request.headers.get("authorization") !== `Bearer ${env.SCAN_ADMIN_TOKEN}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
-            return Response.json(await scan(env));
+            return Response.json(await scan(env, true));
         }
         return new Response("Not found", { status: 404 });
     }
