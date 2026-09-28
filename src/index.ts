@@ -88,7 +88,8 @@ function isIncomplete(challenge: Challenge): boolean {
 }
 
 async function state(db: D1Database, key: string, fallback: string): Promise<string> {
-    return (await db.prepare("SELECT value FROM scan_state WHERE key = ?").bind(key).first<{ value: string }>())?.value ?? fallback;
+    const row = await db.prepare("SELECT value FROM scan_state WHERE key = ?").bind(key).first() as { value: string } | null;
+    return row?.value ?? fallback;
 }
 
 async function setState(db: D1Database, key: string, value: string): Promise<void> {
@@ -100,8 +101,8 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
 async function scan(env: Env, isManual: boolean = false): Promise<{ found: number; missing: number; errors: number }> {
     const fetchBatchSize = env.FETCH_BATCH_SIZE ? Number(env.FETCH_BATCH_SIZE) : 8;
     const stateKeys = ["next_id", "consecutive_missing"];
-    const stateRows = await env.DB.prepare(`SELECT key, value FROM scan_state WHERE key IN (?, ?)`).bind(...stateKeys).all<{key: string, value: string}>();
-    const stateMap = new Map((stateRows.results || []).map(r => [r.key, r.value]));
+    const stateRows = await env.DB.prepare(`SELECT key, value FROM scan_state WHERE key IN (?, ?)`).bind(...stateKeys).all();
+    const stateMap = new Map(((stateRows.results as {key: string, value: string}[]) || []).map(r => [r.key, r.value]));
     let nextId = Number(stateMap.get("next_id") ?? env.START_ID);
     let consecutiveMissing = Number(stateMap.get("consecutive_missing") ?? "0");
     let found = 0;
@@ -124,10 +125,10 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
         ? `SELECT id FROM attempts WHERE status != 'found' ORDER BY next_retry_at ASC`
         : `SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY next_retry_at ASC`;
     const retryRows = isManual 
-        ? await env.DB.prepare(retryQuery).all<{ id: number }>()
-        : await env.DB.prepare(retryQuery).bind(new Date().toISOString()).all<{ id: number }>();
+        ? await env.DB.prepare(retryQuery).all()
+        : await env.DB.prepare(retryQuery).bind(new Date().toISOString()).all();
     
-    let retryIdsArray = (retryRows.results ?? []).map((row) => row.id);
+    let retryIdsArray = ((retryRows.results as {id: number}[]) ?? []).map((row) => row.id);
     
     // Cloudflare limits subrequests to 50 per Worker invocation (Free tier).
     // Strava redirects cost 2 subrequests per ID, and Telegram sends 1 subrequest per new challenge.
@@ -146,7 +147,7 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
 
     const newIdsStart = nextId;
     const newIds = Array.from({ length: actualFetchBatchSize }, (_, index) => nextId + index);
-    const ids = [...new Set([...retryIds, ...newIds])].sort((a, b) => a - b);
+    const ids = [...new Set([...retryIds, ...newIds])].sort((a, b) => (a as number) - (b as number)) as number[];
 
     let foundAnyNew = false;
     let deferredMissingNewIds: number[] = [];
@@ -169,8 +170,8 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
     const existingIdsSet = new Set<number>();
     if (validIds.length > 0) {
         const placeholders = validIds.map(() => "?").join(",");
-        const existingRows = await env.DB.prepare(`SELECT id FROM challenges WHERE id IN (${placeholders})`).bind(...validIds).all<{id: number}>();
-        existingRows.results?.forEach(r => existingIdsSet.add(r.id));
+        const existingRows = await env.DB.prepare(`SELECT id FROM challenges WHERE id IN (${placeholders})`).bind(...validIds).all();
+        (existingRows.results as {id: number}[] | undefined)?.forEach(r => existingIdsSet.add(r.id));
     }
 
     const now = new Date().toISOString();
