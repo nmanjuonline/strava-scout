@@ -130,15 +130,22 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
     let retryIdsArray = (retryRows.results ?? []).map((row) => row.id);
     
     // Cloudflare limits subrequests to 50 per Worker invocation (Free tier).
-    // To avoid "Too many subrequests" error, we must cap the total number of fetches per invocation.
-    // We will do 5 forward scan records, so we cap the retries at 40 to stay safely under 50.
-    if (retryIdsArray.length > 40) {
-        retryIdsArray = retryIdsArray.slice(0, 40);
+    // Strava redirects cost 2 subrequests per ID, and Telegram sends 1 subrequest per new challenge.
+    // 12 IDs * 2 = 24 subrequests + 12 Telegram + 3 Reports = 39 (Safely under 50 limit).
+    const MAX_SAFE_IDS = 12;
+    
+    // Always prioritize forward progress. We allocate slots for newIds first.
+    const actualFetchBatchSize = Math.min(fetchBatchSize, MAX_SAFE_IDS);
+    
+    // The remaining slots go to backlog retries.
+    const retrySlots = MAX_SAFE_IDS - actualFetchBatchSize;
+    if (retryIdsArray.length > retrySlots) {
+        retryIdsArray = retryIdsArray.slice(0, retrySlots);
     }
     const retryIds = new Set(retryIdsArray);
 
     const newIdsStart = nextId;
-    const newIds = Array.from({ length: fetchBatchSize }, (_, index) => nextId + index);
+    const newIds = Array.from({ length: actualFetchBatchSize }, (_, index) => nextId + index);
     const ids = [...new Set([...retryIds, ...newIds])].sort((a, b) => a - b);
 
     let foundAnyNew = false;
