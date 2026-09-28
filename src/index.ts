@@ -118,8 +118,19 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
         "  AND c.qualifying_activities = 'Activities unavailable'" +
         ")"
     ).bind(new Date().toISOString()).run();
-    const retryRows = await env.DB.prepare(`SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY id LIMIT ${fetchBatchSize}`).bind(new Date().toISOString()).all<{ id: number }>();
-    const retryIds = new Set((retryRows.results ?? []).map((row) => row.id));
+    
+    // Pick all missing/errored records without a DB limit
+    const retryRows = await env.DB.prepare(`SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY next_retry_at ASC`).bind(new Date().toISOString()).all<{ id: number }>();
+    let retryIdsArray = (retryRows.results ?? []).map((row) => row.id);
+    
+    // Cloudflare limits subrequests to 50 per Worker invocation (Free tier).
+    // To avoid "Too many subrequests" error, we must cap the total number of fetches per invocation.
+    // We will do 5 forward scan records, so we cap the retries at 40 to stay safely under 50.
+    if (retryIdsArray.length > 40) {
+        retryIdsArray = retryIdsArray.slice(0, 40);
+    }
+    const retryIds = new Set(retryIdsArray);
+
     const newIdsStart = nextId;
     const newIds = Array.from({ length: fetchBatchSize }, (_, index) => nextId + index);
     const ids = [...new Set([...retryIds, ...newIds])].sort((a, b) => a - b);
