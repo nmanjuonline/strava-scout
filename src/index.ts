@@ -135,11 +135,12 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
     // 12 IDs * 2 = 24 subrequests + 12 Telegram + 3 Reports = 39 (Safely under 50 limit).
     const MAX_SAFE_IDS = 12;
     
-    // Always prioritize forward progress. We allocate slots for newIds first.
-    const actualFetchBatchSize = Math.min(fetchBatchSize, MAX_SAFE_IDS);
+    // Guarantee up to 4 slots for backlog retries so they don't get starved
+    const retrySlots = Math.min(4, retryIdsArray.length);
     
-    // The remaining slots go to backlog retries.
-    const retrySlots = MAX_SAFE_IDS - actualFetchBatchSize;
+    // The remaining slots go to forward progress
+    const actualFetchBatchSize = Math.min(fetchBatchSize, MAX_SAFE_IDS - retrySlots);
+    
     if (retryIdsArray.length > retrySlots) {
         retryIdsArray = retryIdsArray.slice(0, retrySlots);
     }
