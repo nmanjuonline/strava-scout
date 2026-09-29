@@ -4,8 +4,8 @@ import { Challenge, Env } from "../types";
 export class EmailBroadcaster implements NotificationBroadcaster {
     private async getSubscribers(env: Env): Promise<string[]> {
         try {
-            const { results } = await env.DB.prepare("SELECT email FROM email_subscribers").all<{ email: string }>();
-            return (results || []).map(r => r.email);
+            const { results } = await env.DB.prepare("SELECT email FROM email_subscribers").all();
+            return ((results as { email: string }[]) || []).map(r => r.email);
         } catch (error) {
             console.error("Failed to fetch email subscribers:", error);
             return [];
@@ -168,7 +168,7 @@ export class EmailBroadcaster implements NotificationBroadcaster {
         await this.sendGoogleScriptEmail(env, subscribers, subject, html);
     }
 
-    async sendScanReport(env: Env, result: ScanReport, idsScanned: number): Promise<void> {
+    async sendScanReport(env: Env, result: ScanReport, idsScanned: number[]): Promise<void> {
         // Optional: Implement scan report for email admins
     }
 }

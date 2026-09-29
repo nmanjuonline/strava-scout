@@ -77,9 +77,9 @@ export class TelegramBroadcaster implements NotificationBroadcaster {
         }
     }
 
-    async sendScanReport(env: Env, result: ScanReport, idsScanned: number): Promise<void> {
+    async sendScanReport(env: Env, result: ScanReport, idsScanned: number[]): Promise<void> {
         if (!env.TELEGRAM_ADMIN_CHAT_ID) return; // Only send if admin chat is configured
-        const text = `*Scan Complete*\n\nFound: ${result.found}\nMissing: ${result.missing}\nErrors: ${result.errors}\nChecked: ${idsScanned}`;
+        const text = `*Scan Complete*\n\nFound: ${result.found}\nMissing: ${result.missing}\nErrors: ${result.errors}\nChecked: ${idsScanned.length}\nIDs: ${idsScanned.join(", ")}`;
         await this.sendTelegramMessage(env, text, undefined, env.TELEGRAM_ADMIN_CHAT_ID);
     }
 }

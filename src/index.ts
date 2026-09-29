@@ -1,4 +1,4 @@
-﻿import { Env, Challenge } from "./types";
+import { Env, Challenge } from "./types";
 import { notifications } from "./notifications";
 
 const missingLimit = 4;
@@ -88,7 +88,8 @@ function isIncomplete(challenge: Challenge): boolean {
 }
 
 async function state(db: D1Database, key: string, fallback: string): Promise<string> {
-    return (await db.prepare("SELECT value FROM scan_state WHERE key = ?").bind(key).first<{ value: string }>())?.value ?? fallback;
+    const row = await db.prepare("SELECT value FROM scan_state WHERE key = ?").bind(key).first() as { value: string } | null;
+    return row?.value ?? fallback;
 }
 
 async function setState(db: D1Database, key: string, value: string): Promise<void> {
@@ -97,10 +98,13 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
 
 
 
-async function scan(env: Env): Promise<{ found: number; missing: number; errors: number }> {
+async function scan(env: Env, isManual: boolean = false): Promise<{ found: number; missing: number; errors: number }> {
     const fetchBatchSize = env.FETCH_BATCH_SIZE ? Number(env.FETCH_BATCH_SIZE) : 8;
-    let nextId = Number(await state(env.DB, "next_id", env.START_ID));
-    let consecutiveMissing = Number(await state(env.DB, "consecutive_missing", "0"));
+    const stateKeys = ["next_id", "consecutive_missing"];
+    const stateRows = await env.DB.prepare(`SELECT key, value FROM scan_state WHERE key IN (?, ?)`).bind(...stateKeys).all();
+    const stateMap = new Map(((stateRows.results as {key: string, value: string}[]) || []).map(r => [r.key, r.value]));
+    let nextId = Number(stateMap.get("next_id") ?? env.START_ID);
+    let consecutiveMissing = Number(stateMap.get("consecutive_missing") ?? "0");
     let found = 0;
     let missing = 0;
     let errors = 0;
@@ -115,16 +119,42 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
         "  AND c.qualifying_activities = 'Activities unavailable'" +
         ")"
     ).bind(new Date().toISOString()).run();
-    const retryRows = await env.DB.prepare(`SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY id LIMIT ${fetchBatchSize}`).bind(new Date().toISOString()).all<{ id: number }>();
-    const retryIds = new Set((retryRows.results ?? []).map((row) => row.id));
+    
+    // Pick all missing/errored records without a DB limit
+    const retryQuery = isManual 
+        ? `SELECT id FROM attempts WHERE status != 'found' ORDER BY next_retry_at ASC`
+        : `SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY next_retry_at ASC`;
+    const retryRows = isManual 
+        ? await env.DB.prepare(retryQuery).all()
+        : await env.DB.prepare(retryQuery).bind(new Date().toISOString()).all();
+    
+    let retryIdsArray = ((retryRows.results as {id: number}[]) ?? []).map((row) => row.id);
+    
+    // Cloudflare limits subrequests to 50 per Worker invocation (Free tier).
+    // Strava redirects cost 2 subrequests per ID, and Telegram sends 1 subrequest per new challenge.
+    // 12 IDs * 2 = 24 subrequests + 12 Telegram + 3 Reports = 39 (Safely under 50 limit).
+    const MAX_SAFE_IDS = 12;
+    
+    // Always prioritize forward progress. We allocate slots for newIds first.
+    const actualFetchBatchSize = Math.min(fetchBatchSize, MAX_SAFE_IDS);
+    
+    // The remaining slots go to backlog retries.
+    const retrySlots = MAX_SAFE_IDS - actualFetchBatchSize;
+    if (retryIdsArray.length > retrySlots) {
+        retryIdsArray = retryIdsArray.slice(0, retrySlots);
+    }
+    const retryIds = new Set(retryIdsArray);
+
     const newIdsStart = nextId;
-    const newIds = Array.from({ length: fetchBatchSize }, (_, index) => nextId + index);
-    const ids = [...new Set([...retryIds, ...newIds])].sort((a, b) => a - b);
+    const newIds = Array.from({ length: actualFetchBatchSize }, (_, index) => nextId + index);
+    const ids = [...new Set([...retryIds, ...newIds])].sort((a, b) => (a as number) - (b as number)) as number[];
 
     let foundAnyNew = false;
     let deferredMissingNewIds: number[] = [];
     let highestFoundNewId = -1;
     const newChallenges: Challenge[] = [];
+    
+    const dbStatements: D1PreparedStatement[] = [];
 
     const fetchResults = await Promise.all(
         ids.map(async (id) => {
@@ -136,11 +166,22 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
         })
     );
 
+    const validIds = fetchResults.filter(r => r.challenge && !isIncomplete(r.challenge)).map(r => r.id);
+    const existingIdsSet = new Set<number>();
+    if (validIds.length > 0) {
+        const placeholders = validIds.map(() => "?").join(",");
+        const existingRows = await env.DB.prepare(`SELECT id FROM challenges WHERE id IN (${placeholders})`).bind(...validIds).all();
+        (existingRows.results as {id: number}[] | undefined)?.forEach(r => existingIdsSet.add(r.id));
+    }
+
+    const now = new Date().toISOString();
+    const retryDelay = new Date(Date.now() + retryDelayMs).toISOString();
+
     for (const result of fetchResults) {
         const { id, challenge, error } = result;
         if (error) {
             errors++;
-            await env.DB.prepare("INSERT INTO attempts (id, status, last_error, last_checked_at, next_retry_at, attempts) VALUES (?, 'error', ?, ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'error', last_error = excluded.last_error, last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, String(error), new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+            dbStatements.push(env.DB.prepare("INSERT INTO attempts (id, status, last_error, last_checked_at, next_retry_at, attempts) VALUES (?, 'error', ?, ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'error', last_error = excluded.last_error, last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, String(error), now, retryDelay));
             continue;
         }
 
@@ -149,7 +190,7 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
             consecutiveMissing++;
             if (retryIds.has(id)) {
                 // Known retry-queue id, still missing — keep tracking it and push its next retry out.
-                await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+                dbStatements.push(env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, now, retryDelay));
             } else if (id >= newIdsStart) {
                 deferredMissingNewIds.push(id);
             }
@@ -159,9 +200,7 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
         if (isIncomplete(challenge)) {
             missing++;
             consecutiveMissing = 0; // Page exists, don't count against the consecutive-missing stop limit.
-            await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
-            // We also defer this so that if a valid one is found later, it's covered?
-            // Wait, it's already inserted into attempts as missing right here, so we don't need to defer it.
+            dbStatements.push(env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, now, retryDelay));
             continue;
         }
 
@@ -173,37 +212,34 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
 
         found++;
         consecutiveMissing = 0;
-        const existing = await env.DB.prepare("SELECT id FROM challenges WHERE id = ?").bind(id).first();
-        const detectedAtFallback = new Date().toISOString();
-        // Combine the challenge upsert + attempts upsert into a single batched subrequest.
-        await env.DB.batch([
-            env.DB.prepare("INSERT OR REPLACE INTO challenges (id, title, description, date_interval, qualifying_activities, url, image_url, detected_at, notified_at) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT detected_at FROM challenges WHERE id = ?), ?), ?)").bind(id, challenge.title, challenge.description, challenge.dateInterval, challenge.qualifyingActivities, challenge.url, challenge.imageUrl || null, id, detectedAtFallback, existing ? (await state(env.DB, `notified:${id}`, "")) : null),
-            env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'found', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'found', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()),
-        ]);
+        const existing = existingIdsSet.has(id);
+        const detectedAtFallback = now;
+        
+        dbStatements.push(env.DB.prepare("INSERT OR REPLACE INTO challenges (id, title, description, date_interval, qualifying_activities, url, image_url, detected_at, notified_at) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT detected_at FROM challenges WHERE id = ?), ?), (SELECT notified_at FROM challenges WHERE id = ?))").bind(id, challenge.title, challenge.description, challenge.dateInterval, challenge.qualifyingActivities, challenge.url, challenge.imageUrl || null, id, detectedAtFallback, id));
+        dbStatements.push(env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'found', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'found', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at").bind(id, now, retryDelay));
+
         if (!existing) {
             newChallenges.push(challenge);
-            const notifiedAt = new Date().toISOString();
-            await env.DB.batch([
-                env.DB.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`notified:${id}`, notifiedAt),
-                env.DB.prepare("UPDATE challenges SET notified_at = ? WHERE id = ?").bind(notifiedAt, id),
-            ]);
+            dbStatements.push(env.DB.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`notified:${id}`, now));
+            dbStatements.push(env.DB.prepare("UPDATE challenges SET notified_at = ? WHERE id = ?").bind(now, id));
         }
     }
 
     if (foundAnyNew) {
         for (const deferredId of deferredMissingNewIds) {
-            await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(deferredId, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+            dbStatements.push(env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(deferredId, now, retryDelay));
         }
         nextId = highestFoundNewId + 1;
     }
 
-    const now = new Date().toISOString();
-    await env.DB.batch([
-        env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('next_id', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(nextId)),
-        env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('consecutive_missing', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(consecutiveMissing)),
-        env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('last_scan_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(now),
-        env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('last_scan_result', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`${found} found, ${missing} missing, ${errors} errors`),
-    ]);
+    dbStatements.push(env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('next_id', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(nextId)));
+    dbStatements.push(env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('consecutive_missing', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(consecutiveMissing)));
+    dbStatements.push(env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('last_scan_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(now));
+    dbStatements.push(env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('last_scan_result', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`${found} found, ${missing} missing, ${errors} errors`));
+
+    for (let i = 0; i < dbStatements.length; i += 90) {
+        await env.DB.batch(dbStatements.slice(i, i + 90));
+    }
 
     try {
         await notifications.notifyBatched(env, newChallenges);
@@ -212,7 +248,7 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
     }
 
     try {
-        await notifications.sendScanReport(env, { found, missing, errors }, ids.length);
+        await notifications.sendScanReport(env, { found, missing, errors }, ids);
     } catch (error) {
         console.error("Failed to send scan report:", error);
     }
@@ -244,12 +280,26 @@ function getNextScheduledScan(now = new Date()): string {
 }
 
 import { dashboard } from "./dashboard";
+import { subscribePage } from "./subscribe";
 
 export default {
     async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> { ctx.waitUntil(scan(env)); },
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url);
         if (url.pathname === "/") return new Response(dashboard, { headers: { "content-type": "text/html;charset=UTF-8" } });
+        if (url.pathname === "/subscribe") return new Response(subscribePage, { headers: { "content-type": "text/html;charset=UTF-8" } });
+        if (url.pathname === "/api/subscribe" && request.method === "POST") {
+            try {
+                const body = await request.json() as { email: string };
+                if (!body || !body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+                    return Response.json({ error: "Invalid email address" }, { status: 400 });
+                }
+                await env.DB.prepare("INSERT INTO email_subscribers (email) VALUES (?) ON CONFLICT(email) DO NOTHING").bind(body.email).run();
+                return Response.json({ success: true });
+            } catch (error) {
+                return Response.json({ error: "Failed to subscribe" }, { status: 500 });
+            }
+        }
         if (url.pathname === "/api/health") {
             try {
                 // Lazy migration to add image_url column since CLI remote D1 auth failed
@@ -318,7 +368,7 @@ export default {
         }
         if (url.pathname === "/api/scan" && request.method === "POST") {
             //if (request.headers.get("authorization") !== `Bearer ${env.SCAN_ADMIN_TOKEN}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
-            return Response.json(await scan(env));
+            return Response.json(await scan(env, true));
         }
         return new Response("Not found", { status: 404 });
     }
