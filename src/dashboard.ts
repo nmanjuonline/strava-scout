@@ -825,7 +825,7 @@ export const dashboard = `<!doctype html>
       </div>
       <div class="stat-meta" style="margin-top: 10px;">
         <div id="next-scan-local-meta">Local Time</div>
-        <div id="cadence-text" style="font-size: 11px; opacity: 0.7;">Cadence: 01:00, 05:00, 09:00, 13:00, 17:00 & 21:00 UTC (6x daily)</div>
+        <div id="cadence-text" style="font-size: 11px; opacity: 0.7;">Runs automatically every 4 hours</div>
       </div>
     </div>
 
