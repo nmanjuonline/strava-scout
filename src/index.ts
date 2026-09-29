@@ -286,23 +286,19 @@ function getNextScheduledScan(now = new Date()): string {
     const y = now.getUTCFullYear();
     const m = now.getUTCMonth();
     const d = now.getUTCDate();
-    const slot1 = new Date(Date.UTC(y, m, d, 1, 0, 0, 0));
-    const slot2 = new Date(Date.UTC(y, m, d, 7, 0, 0, 0));
-    const slot3 = new Date(Date.UTC(y, m, d, 13, 0, 0, 0));
-    const slot4 = new Date(Date.UTC(y, m, d, 19, 0, 0, 0));
-    const slotTomorrow = new Date(Date.UTC(y, m, d + 1, 1, 0, 0, 0));
-
-    if (now.getTime() < slot1.getTime()) {
-        return slot1.toISOString();
-    } else if (now.getTime() < slot2.getTime()) {
-        return slot2.toISOString();
-    } else if (now.getTime() < slot3.getTime()) {
-        return slot3.toISOString();
-    } else if (now.getTime() < slot4.getTime()) {
-        return slot4.toISOString();
-    } else {
-        return slotTomorrow.toISOString();
+    
+    // The scheduled hours in UTC (matches wrangler.toml: 1, 5, 9, 13, 17, 21)
+    const scheduledHoursUTC = [1, 5, 9, 13, 17, 21];
+    
+    for (const hour of scheduledHoursUTC) {
+        const slot = new Date(Date.UTC(y, m, d, hour, 0, 0, 0));
+        if (now.getTime() < slot.getTime()) {
+            return slot.toISOString();
+        }
     }
+    
+    // If now is past the last slot of the day, the next slot is the first one tomorrow
+    return new Date(Date.UTC(y, m, d + 1, scheduledHoursUTC[0], 0, 0, 0)).toISOString();
 }
 
 import { renderDashboard } from "./dashboard";
@@ -401,7 +397,7 @@ export default {
                 consecutiveMissing: Number(consecutiveMissing),
                 lastScanResult,
                 nextScanAt,
-                cronSchedule: "0 1,7,13,19 * * *",
+                cronSchedule: "0 1,5,9,13,17,21 * * *",
                 challenges: challenges.results ?? []
             });
         }

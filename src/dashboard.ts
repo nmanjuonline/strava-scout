@@ -1301,7 +1301,7 @@ function renderChallenges() {
 
   if (!filtered.length) {
     if (allChallenges.length === 0) {
-      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No challenges discovered yet</div><div class="empty-desc">The scanner runs every 6 hours. You can also trigger an on-demand scan above!</div></div>';
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No challenges discovered yet</div><div class="empty-desc">The scanner runs every 4 hours. You can also trigger an on-demand scan above!</div></div>';
     } else {
       list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No matching challenges</div><div class="empty-desc">Try modifying your search keywords or filter pills.</div></div>';
     }
