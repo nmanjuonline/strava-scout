@@ -1,4 +1,4 @@
-export const dashboard = `<!doctype html>
+export const renderDashboard = (config: { domain?: string, clientId?: string, audience?: string }) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -7,7 +7,12 @@ export const dashboard = `<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
 <style>
+  .auth-required { display: none !important; }
+  body.is-authenticated .auth-required { display: flex !important; }
+  body.is-authenticated section.stats-grid.auth-required { display: grid !important; }
+  body.is-authenticated .btn-resend.auth-required { display: inline-flex !important; }
   :root {
     --bg: #090d16;
     --bg-gradient: radial-gradient(circle at 85% 0%, rgba(252, 82, 0, 0.14) 0%, transparent 45%),
@@ -758,6 +763,10 @@ export const dashboard = `<!doctype html>
         <span class="beacon-dot"></span>
         <span>Scheduled 6x/day</span>
       </div>
+      <button class="btn btn-ghost" id="btn-login">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+        <span id="btn-login-text">Login</span>
+      </button>
       <button class="btn btn-ghost btn-icon" id="btn-refresh" title="Refresh dashboard data">
         <svg id="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/>
@@ -771,7 +780,7 @@ export const dashboard = `<!doctype html>
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
         </svg>
       </button>
-      <button class="btn btn-ghost btn-icon" id="btn-settings" title="Notification Settings">
+      <button class="btn btn-ghost btn-icon auth-required" id="btn-settings" title="Notification Settings">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"></circle>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -783,7 +792,7 @@ export const dashboard = `<!doctype html>
           <polyline points="22,6 12,13 2,6"></polyline>
         </svg>
       </a>
-      <button class="btn btn-primary" id="btn-scan" title="Trigger an immediate scan">
+      <button class="btn btn-primary auth-required" id="btn-scan" title="Trigger an immediate scan">
         <svg id="scan-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
@@ -807,7 +816,7 @@ export const dashboard = `<!doctype html>
   </section>
 
   <!-- 4-Column Stats Grid -->
-  <section class="stats-grid">
+  <section class="stats-grid auth-required">
     <!-- 1. Next Scheduled Scan (Featured Card) -->
     <div class="stat-card featured">
       <div class="stat-header">
@@ -949,6 +958,58 @@ export const dashboard = `<!doctype html>
 </div>
 
 <script>
+let auth0Client = null;
+let authToken = null;
+
+async function initAuth() {
+  const domain = "${config.domain || ''}";
+  const clientId = "${config.clientId || ''}";
+  const audience = "${config.audience || ''}";
+
+  if (!domain || !clientId) return;
+
+  auth0Client = await auth0.createAuth0Client({
+    domain,
+    clientId,
+    cacheLocation: 'localstorage',
+    authorizationParams: {
+      audience,
+      redirect_uri: window.location.origin
+    }
+  });
+
+  if (location.search.includes("state=") && (location.search.includes("code=") || location.search.includes("error="))) {
+    await auth0Client.handleRedirectCallback();
+    window.history.replaceState({}, document.title, "/");
+  }
+
+  const isAuthenticated = await auth0Client.isAuthenticated();
+  if (isAuthenticated) {
+    authToken = await auth0Client.getTokenSilently();
+    document.body.classList.add('is-authenticated');
+    const loginText = document.getElementById('btn-login-text');
+    if (loginText) loginText.textContent = 'Logout';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btnLogin = document.getElementById('btn-login');
+  if (btnLogin) {
+    btnLogin.addEventListener('click', async () => {
+      if (!auth0Client) {
+        alert('Auth0 is not configured on the server.');
+        return;
+      }
+      const isAuthenticated = await auth0Client.isAuthenticated();
+      if (isAuthenticated) {
+        auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
+      } else {
+        auth0Client.loginWithRedirect();
+      }
+    });
+  }
+});
+
 let allChallenges = [];
 let nextScanIsoTimestamp = null;
 let currentFilter = 'all';
@@ -1118,7 +1179,7 @@ function renderChallenges() {
             '<span>Open on Strava</span>' +
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
           '</a>' +
-          '<button class="btn-resend" data-id="' + c.id + '" data-url="/api/challenges/' + c.id + '/notify">' +
+          '<button class="btn-resend auth-required" data-id="' + c.id + '" data-url="/api/challenges/' + c.id + '/notify">' +
             '<span>Resend</span>' +
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6H7a3 3 0 0 0-3 3v2" /><polyline points="14 3 17 6 14 9" /><path d="M7 18h10a3 3 0 0 0 3-3v-2" /><polyline points="10 21 7 18 10 15" /></svg>'+ 
           '</button>' +
@@ -1182,7 +1243,10 @@ async function triggerScan() {
   scanIcon.classList.add('spin');
 
   try {
-    const res = await fetch('/api/scan', { method: 'POST' });
+    const res = await fetch('/api/scan', { 
+      method: 'POST',
+      headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
+    });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     showToast('Scan complete: ' + data.found + ' found, ' + data.missing + ' missing, ' + data.errors + ' errors');
@@ -1235,7 +1299,9 @@ document.getElementById('btn-settings').addEventListener('click', async () => {
   const bodyEl = document.getElementById('settings-modal-body');
   bodyEl.innerHTML = '<div style="text-align:center; padding:20px; color:var(--fg-muted);">Loading...</div>';
   try {
-    const res = await fetch('/api/settings');
+    const res = await fetch('/api/settings', {
+      headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
+    });
     const data = await res.json();
     bodyEl.innerHTML = data.map(setting => 
       '<label class="toggle-label">' +
@@ -1262,7 +1328,10 @@ document.getElementById('btn-save-settings').addEventListener('click', async () 
     });
     const res = await fetch('/api/settings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': 'Bearer ' + authToken } : {})
+      },
       body: JSON.stringify(payload)
     });
     if (res.ok) {
@@ -1284,7 +1353,10 @@ document.addEventListener('click', async (e) => {
   if (!btn) return;
   btn.disabled = true;
   try {
-    const res = await fetch(btn.dataset.url, { method: 'POST' });
+    const res = await fetch(btn.dataset.url, { 
+      method: 'POST',
+      headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
+    });
     const data = await res.json();
     if (res.ok && data.success) showToast('Message resend successful.', false);
     else showToast('Resend failed: ' + (data.detail || data.error), true);
@@ -1313,7 +1385,7 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
 // Update countdown every 10 seconds
 setInterval(updateNextScanDisplay, 10000);
 
-load();
+initAuth().then(load);
 </script>
 </body>
 </html>`;

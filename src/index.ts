@@ -1,6 +1,23 @@
 import { Env, Challenge } from "./types";
 import { notifications } from "./notifications";
 
+async function verifyAuth(request: Request, env: Env): Promise<boolean> {
+    if (!env.AUTH0_DOMAIN) return true; // Auth not configured, allow access
+    
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return false;
+    
+    const token = authHeader.substring(7);
+    try {
+        const res = await fetch(`https://${env.AUTH0_DOMAIN}/userinfo`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
 const missingLimit = 4;
 const retryDelayMs = 12 * 60 * 60 * 1000;
 
@@ -280,14 +297,14 @@ function getNextScheduledScan(now = new Date()): string {
     }
 }
 
-import { dashboard } from "./dashboard";
+import { renderDashboard } from "./dashboard";
 import { subscribePage } from "./subscribe";
 
 export default {
     async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> { ctx.waitUntil(scan(env)); },
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url);
-        if (url.pathname === "/") return new Response(dashboard, { headers: { "content-type": "text/html;charset=UTF-8" } });
+        if (url.pathname === "/") return new Response(renderDashboard({ domain: env.AUTH0_DOMAIN, clientId: env.AUTH0_CLIENT_ID, audience: env.AUTH0_AUDIENCE }), { headers: { "content-type": "text/html;charset=UTF-8" } });
         if (url.pathname === "/subscribe") return new Response(subscribePage, { headers: { "content-type": "text/html;charset=UTF-8" } });
         if (url.pathname === "/api/subscribe" && request.method === "POST") {
             try {
@@ -302,6 +319,7 @@ export default {
             }
         }
         if (url.pathname === "/api/settings" && request.method === "GET") {
+            if (!(await verifyAuth(request, env))) return Response.json({ error: "Unauthorized" }, { status: 401 });
             const settings = await Promise.all(notifications.broadcasters.map(async b => {
                 const enabled = await state(env.DB, `notify_${b.id}_enabled`, "true");
                 return { id: b.id, name: b.name, enabled: enabled === "true" };
@@ -309,6 +327,7 @@ export default {
             return Response.json(settings);
         }
         if (url.pathname === "/api/settings" && request.method === "POST") {
+            if (!(await verifyAuth(request, env))) return Response.json({ error: "Unauthorized" }, { status: 401 });
             try {
                 const body = await request.json() as Record<string, boolean>;
                 for (const b of notifications.broadcasters) {
@@ -377,7 +396,7 @@ export default {
 
         const singleChallengeMatch = url.pathname.match(/^\/api\/challenges\/(\d+)$/);
         if (singleChallengeMatch && request.method === "GET") {
-            //if (request.headers.get("authorization") !== `Bearer ${env.SCAN_ADMIN_TOKEN}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
+            if (!(await verifyAuth(request, env))) return Response.json({ error: "Unauthorized" }, { status: 401 });
             const id = Number(singleChallengeMatch[1]);
             try {
                 const challenge = await fetchChallenge(id);
@@ -388,6 +407,7 @@ export default {
             }
         }
         if (url.pathname.match(/^\/api\/challenges\/(\d+)\/notify$/) && request.method === "POST") {
+            if (!(await verifyAuth(request, env))) return Response.json({ error: "Unauthorized" }, { status: 401 });
             const id = Number(url.pathname.match(/^\/api\/challenges\/(\d+)\/notify$/)?.[1]);
             try {
                 const challenge = await fetchChallenge(id);
@@ -401,7 +421,7 @@ export default {
             }
         }
         if (url.pathname === "/api/scan" && request.method === "POST") {
-            //if (request.headers.get("authorization") !== `Bearer ${env.SCAN_ADMIN_TOKEN}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
+            if (!(await verifyAuth(request, env))) return Response.json({ error: "Unauthorized" }, { status: 401 });
             return Response.json(await scan(env, true));
         }
         return new Response("Not found", { status: 404 });
