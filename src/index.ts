@@ -321,6 +321,19 @@ export default {
                 return Response.json({ error: "Failed to save settings" }, { status: 500 });
             }
         }
+        if (url.pathname === "/api/register-token" && request.method === "POST") {
+            try {
+                const body = await request.json() as { token: string };
+                if (!body?.token || !body.token.startsWith("ExponentPushToken[")) {
+                    return Response.json({ error: "Invalid Expo push token" }, { status: 400 });
+                }
+                await setState(env.DB, "expo_push_token", body.token);
+                console.log("Registered Expo push token:", body.token);
+                return Response.json({ success: true });
+            } catch (error) {
+                return Response.json({ error: "Failed to register token" }, { status: 500 });
+            }
+        }
         if (url.pathname === "/api/health") {
             try {
                 // Lazy migration to add image_url column since CLI remote D1 auth failed
