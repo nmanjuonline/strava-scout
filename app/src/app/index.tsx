@@ -192,7 +192,7 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.headerContainer}>
-          <Image source={require('../../assets/images/logo.jpg')} style={styles.headerLogo} resizeMode="contain" />
+          <Image source={require('../../assets/images/logo.png')} style={styles.headerLogo} resizeMode="contain" />
           <ThemedText type="title" style={styles.header}>Strava Scout</ThemedText>
           <View style={{ flex: 1 }} />
           <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsButton}>
