@@ -67,14 +67,14 @@ export class ExpoBroadcaster implements NotificationBroadcaster {
         }
     }
 
-    async sendScanReport(env: Env, result: ScanReport, idsScanned: number): Promise<void> {
+    async sendScanReport(env: Env, result: ScanReport, idsScanned: number[]): Promise<void> {
         if (!env.EXPO_PUSH_TOKEN) return;
         const message = {
             to: env.EXPO_PUSH_TOKEN,
             sound: 'default',
             channelId: 'default',
             title: 'Scan Complete',
-            body: `Found: ${result.found}, Missing: ${result.missing}, Errors: ${result.errors}, Checked: ${idsScanned}`,
+            body: `Found: ${result.found}, Missing: ${result.missing}, Errors: ${result.errors}, Checked: ${idsScanned.length}`,
             data: { type: 'report' },
         };
 

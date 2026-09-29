@@ -248,7 +248,7 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
     }
 
     try {
-        await notifications.sendScanReport(env, { found, missing, errors }, ids.length);
+        await notifications.sendScanReport(env, { found, missing, errors }, ids);
     } catch (error) {
         console.error("Failed to send scan report:", error);
     }

@@ -23,7 +23,7 @@ export class NotificationDispatcher implements NotificationBroadcaster {
         await Promise.allSettled(this.broadcasters.map(b => b.notifyBatched(env, challenges)));
     }
 
-    async sendScanReport(env: Env, result: ScanReport, idsScanned: number): Promise<void> {
+    async sendScanReport(env: Env, result: ScanReport, idsScanned: number[]): Promise<void> {
         await Promise.allSettled(this.broadcasters.map(b => b.sendScanReport(env, result, idsScanned)));
     }
 }
