@@ -747,7 +747,7 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
   <div class="nav-container">
     <a class="brand" href="/">
       <div class="brand-icon">
-        <img src="/logo.png" width="48" height="48" alt="Strava Scout" style="object-fit: contain;" />
+        <img src="/logo-v2.png" width="48" height="48" alt="Strava Scout" style="object-fit: contain;" />
       </div>
       <div class="brand-text">
         <div class="brand-title">
