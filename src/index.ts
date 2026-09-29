@@ -172,6 +172,10 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
     let highestFoundNewId = -1;
     const newChallenges: Challenge[] = [];
     
+    const foundIds: number[] = [];
+    const missingIds: number[] = [];
+    const errorIds: number[] = [];
+
     const dbStatements: D1PreparedStatement[] = [];
 
     const fetchResults = await Promise.all(
@@ -199,12 +203,14 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
         const { id, challenge, error } = result;
         if (error) {
             errors++;
+            errorIds.push(id);
             dbStatements.push(env.DB.prepare("INSERT INTO attempts (id, status, last_error, last_checked_at, next_retry_at, attempts) VALUES (?, 'error', ?, ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'error', last_error = excluded.last_error, last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, String(error), now, retryDelay));
             continue;
         }
 
         if (!challenge) {
             missing++;
+            missingIds.push(id);
             consecutiveMissing++;
             if (retryIds.has(id)) {
                 // Known retry-queue id, still missing — keep tracking it and push its next retry out.
@@ -217,6 +223,7 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
         // Challenge page exists but all key fields failed to parse — treat as missing and retry next cycle.
         if (isIncomplete(challenge)) {
             missing++;
+            missingIds.push(id);
             consecutiveMissing = 0; // Page exists, don't count against the consecutive-missing stop limit.
             dbStatements.push(env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, now, retryDelay));
             continue;
@@ -229,6 +236,7 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
         }
 
         found++;
+        foundIds.push(id);
         consecutiveMissing = 0;
         const existing = existingIdsSet.has(id);
         const detectedAtFallback = now;
@@ -266,7 +274,7 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
     }
 
     try {
-        await notifications.sendScanReport(env, { found, missing, errors }, ids);
+        await notifications.sendScanReport(env, { found, missing, errors, foundIds, missingIds, errorIds }, ids);
     } catch (error) {
         console.error("Failed to send scan report:", error);
     }
