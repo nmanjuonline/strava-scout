@@ -184,9 +184,9 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
     gap: 8px;
     font-size: 12px;
     font-weight: 600;
-    color: var(--emerald);
-    background: var(--emerald-bg);
-    border: 1px solid var(--emerald-border);
+    color: var(--accent);
+    background: var(--accent-faint-bg);
+    border: 1px solid var(--accent-faint-border);
     padding: 6px 12px;
     border-radius: 9999px;
   }
@@ -194,8 +194,8 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--emerald);
-    box-shadow: 0 0 10px var(--emerald);
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
     animation: pulse 2s infinite ease-in-out;
   }
   @keyframes pulse {
@@ -547,9 +547,9 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
     font-weight: 600;
     padding: 3px 8px;
     border-radius: 6px;
-    background: var(--cyan-pill-bg);
-    color: var(--cyan);
-    border: 1px solid var(--cyan-pill-border);
+    background: var(--accent-faint-bg);
+    color: var(--accent);
+    border: 1px solid var(--accent-faint-border);
   }
   .date-badge {
     display: inline-flex;
@@ -720,6 +720,115 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
     .live-indicator span:not(.beacon-dot) { display: none; }
     .live-indicator { padding: 0; width: 36px; height: 36px; justify-content: center; }
   }
+
+  .challenge-list.grid-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+  }
+  .challenge-list.grid-view .challenge-card {
+    padding: 16px;
+    padding-top: 80px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .challenge-list.grid-view .challenge-id-badge {
+    display: none !important;
+  }
+  .challenge-list.grid-view .card-top-row {
+    display: block;
+  }
+  .challenge-list.grid-view .card-top-left {
+    padding-right: 0;
+    width: 100%;
+  }
+  .challenge-list.grid-view .challenge-image {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    right: auto;
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    margin: 0;
+  }
+  .challenge-list.grid-view .date-badge {
+    display: inline-flex !important;
+    align-items: flex-start;
+    font-size: 11px;
+    line-height: 1.3;
+    opacity: 0.8;
+    margin-bottom: 8px;
+    max-width: none;
+  }
+  .challenge-list.grid-view .challenge-title {
+    font-size: 16px;
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  .challenge-list.grid-view .challenge-desc {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--fg-muted);
+  }
+  .challenge-list.grid-view .activity-pills {
+    display: none !important;
+  }
+  .challenge-list.grid-view .challenge-actions span {
+    display: none !important;
+  }
+  .challenge-list.grid-view .challenge-actions {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    margin: 0;
+    flex-direction: row;
+    width: auto;
+    gap: 8px;
+  }
+  .challenge-list.grid-view .challenge-actions .btn-strava,
+  .challenge-list.grid-view .challenge-actions .btn-resend {
+    padding: 8px;
+    justify-content: center;
+  }
+  .challenge-list.grid-view .date-group-header {
+    grid-column: 1 / -1;
+  }
+  .view-toggle {
+    display: flex;
+    gap: 4px;
+    background: transparent;
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--ghost-border);
+    margin-left: auto;
+  }
+  .view-btn {
+    background: transparent;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: var(--fg-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .view-btn:hover { 
+    background: var(--ghost-hover-bg);
+    color: var(--fg); 
+  }
+  .view-btn.active {
+    background: rgba(252, 82, 0, 0.15);
+    color: var(--accent-light);
+    box-shadow: none;
+  }
   @media (max-width: 640px) {
     .stats-grid { grid-template-columns: 1fr; }
     .nav-container { flex-direction: column; gap: 16px; align-items: center; }
@@ -734,6 +843,58 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
       border: 1px solid var(--card-border);
     }
     .nav-bar { padding: 20px 16px; }
+    .view-toggle { margin-left: 0; width: 100%; justify-content: center; }
+    
+    .challenge-list.grid-view {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .challenge-list.grid-view .challenge-card {
+      padding: 12px;
+      padding-top: 64px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .challenge-list.grid-view .challenge-image {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: auto;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+    }
+    .challenge-list.grid-view .challenge-actions {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+    }
+    .challenge-list.grid-view .card-top-left {
+      padding-right: 0;
+      width: 100%;
+    }
+    .challenge-list.grid-view .date-badge {
+      font-size: 10px;
+      margin-bottom: 6px;
+      max-width: none;
+    }
+    .challenge-list.grid-view .challenge-title {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .challenge-list.grid-view .challenge-desc {
+      display: -webkit-box !important;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--fg-muted);
+    }
+    .challenge-list.grid-view .activity-pills {
+      display: none !important;
+    }
   }
 </style>
 <script>
@@ -924,6 +1085,14 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
           <button class="filter-chip" data-filter="ride">🚴 Ride</button>
           <button class="filter-chip" data-filter="walk">🚶 Walk / Hike</button>
           <button class="filter-chip" data-filter="swim">🏊 Swim</button>
+        </div>
+        <div class="view-toggle" id="view-toggle">
+          <button class="view-btn active" data-view="list" title="List View">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          </button>
+          <button class="view-btn" data-view="grid" title="Grid View">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -1139,7 +1308,23 @@ function renderChallenges() {
     return;
   }
 
-  list.innerHTML = filtered.map(c => {
+  let html = '';
+  let lastDateGroup = null;
+
+  filtered.forEach(c => {
+    let dateStr = 'Unknown Date';
+    if (c.detectedAt) {
+      const date = new Date(c.detectedAt);
+      if (!isNaN(date.getTime())) {
+        dateStr = date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      }
+    }
+
+    if (dateStr !== lastDateGroup) {
+      html += '<div class="date-group-header" style="width: 100%; margin-top: 24px; margin-bottom: 12px; font-weight: 600; color: var(--fg-muted); font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">' + escapeHtml(dateStr) + '</div>';
+      lastDateGroup = dateStr;
+    }
+
     const activities = (c.qualifyingActivities || 'Activity').split(',').map(a => a.trim()).filter(Boolean);
     
     let visibleActivities = activities;
@@ -1151,11 +1336,11 @@ function renderChallenges() {
 
     let actPills = visibleActivities.map(a => '<span class="activity-pill">' + escapeHtml(a) + '</span>').join('');
     if (overflowCount > 0) {
-      actPills += '<span class="activity-pill" style="opacity: 0.8; background: transparent; border: 1px dashed rgba(56, 189, 248, 0.4); color: var(--fg-muted);">+' + overflowCount + ' more</span>';
+      actPills += '<span class="activity-pill" style="background: transparent; border: 1px dashed var(--accent-faint-border); color: var(--accent);">+' + overflowCount + ' more</span>';
     }
     const imgHtml = c.imageUrl ? '<img src="' + escapeHtml(c.imageUrl) + '" class="challenge-image" />' : '';
     
-    return '<article class="challenge-card">' +
+    html += '<article class="challenge-card">' +
       '<div class="challenge-id-badge mono" style="position: absolute; top: -12px; left: 16px; font-size: 12px; font-weight: 700; color: var(--accent-light); background: var(--card-bg); border: 1px solid rgba(252, 82, 0, 0.4); padding: 4px 10px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">#' + c.id + '</div>' +
       '<div class="card-top-row">' +
         '<div class="card-top-left">' +
@@ -1184,7 +1369,9 @@ function renderChallenges() {
         '</div>' +
       '</div>' +
     '</article>';
-  }).join('');
+  });
+
+  list.innerHTML = html;
 }
 
 function escapeHtml(str) {
@@ -1382,6 +1569,36 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
 
 // Update countdown every 10 seconds
 setInterval(updateNextScanDisplay, 10000);
+
+// View Toggle
+const savedView = localStorage.getItem('strava-scout-view') || 'list';
+const challengeList = document.getElementById('list');
+const viewBtns = document.querySelectorAll('.view-btn');
+
+function applyView(viewMode) {
+  if (viewMode === 'grid') {
+    challengeList.classList.add('grid-view');
+  } else {
+    challengeList.classList.remove('grid-view');
+  }
+  viewBtns.forEach(b => {
+    if (b.getAttribute('data-view') === viewMode) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+}
+
+applyView(savedView);
+
+viewBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const view = btn.getAttribute('data-view');
+    localStorage.setItem('strava-scout-view', view);
+    applyView(view);
+  });
+});
 
 initAuth().then(load);
 </script>
