@@ -7,6 +7,8 @@ export interface ScanReport {
 }
 
 export interface NotificationBroadcaster {
+    readonly id: string;
+    readonly name: string;
     notify(env: Env, challenge: Challenge): Promise<void>;
     notifyBatched(env: Env, challenges: Challenge[]): Promise<void>;
     sendScanReport(env: Env, result: ScanReport, idsScanned: number[]): Promise<void>;
