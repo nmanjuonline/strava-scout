@@ -300,6 +300,26 @@ export default {
                 return Response.json({ error: "Failed to subscribe" }, { status: 500 });
             }
         }
+        if (url.pathname === "/api/settings" && request.method === "GET") {
+            const settings = await Promise.all(notifications.broadcasters.map(async b => {
+                const enabled = await state(env.DB, `notify_${b.id}_enabled`, "true");
+                return { id: b.id, name: b.name, enabled: enabled === "true" };
+            }));
+            return Response.json(settings);
+        }
+        if (url.pathname === "/api/settings" && request.method === "POST") {
+            try {
+                const body = await request.json() as Record<string, boolean>;
+                for (const b of notifications.broadcasters) {
+                    if (typeof body[b.id] === "boolean") {
+                        await setState(env.DB, `notify_${b.id}_enabled`, String(body[b.id]));
+                    }
+                }
+                return Response.json({ success: true });
+            } catch (error) {
+                return Response.json({ error: "Failed to save settings" }, { status: 500 });
+            }
+        }
         if (url.pathname === "/api/health") {
             try {
                 // Lazy migration to add image_url column since CLI remote D1 auth failed

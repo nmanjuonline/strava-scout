@@ -584,6 +584,29 @@ export const dashboard = `<!doctype html>
   }
 
   /* Responsive Design */
+  /* Settings Modal */
+  .modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    z-index: 200; display: none; align-items: center; justify-content: center;
+  }
+  .modal.active { display: flex; }
+  .modal-content {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 16px; width: 100%; max-width: 400px; padding: 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-header h2 { font-size: 18px; margin: 0; }
+  .btn-close { background: none; border: none; color: var(--fg-muted); font-size: 24px; cursor: pointer; }
+  .toggle-label {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 15px; cursor: pointer;
+  }
+  .toggle-label:last-child { border-bottom: none; }
+  .modal-footer { margin-top: 24px; display: flex; justify-content: flex-end; }
+
   @media (max-width: 960px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
   }
@@ -620,6 +643,13 @@ export const dashboard = `<!doctype html>
           <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/>
         </svg>
         <span>Refresh</span>
+      </button>
+      <button class="btn btn-ghost" id="btn-settings" title="Notification Settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Settings</span>
       </button>
       <a href="/subscribe" class="btn btn-ghost" title="Subscribe to email notifications">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -777,6 +807,21 @@ export const dashboard = `<!doctype html>
 </main>
 
 <div class="toast-container" id="toast-container"></div>
+
+<div id="settings-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Notification Settings</h2>
+      <button class="btn-close" id="btn-close-settings">&times;</button>
+    </div>
+    <div class="modal-body" id="settings-modal-body">
+      <div style="text-align:center; padding:20px; color:var(--fg-muted);">Loading...</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+    </div>
+  </div>
+</div>
 
 <script>
 let allChallenges = [];
@@ -1029,6 +1074,56 @@ async function triggerScan() {
 // Event Listeners
 document.getElementById('btn-refresh').addEventListener('click', load);
 document.getElementById('btn-scan').addEventListener('click', triggerScan);
+
+const settingsModal = document.getElementById('settings-modal');
+document.getElementById('btn-settings').addEventListener('click', async () => {
+  settingsModal.classList.add('active');
+  const bodyEl = document.getElementById('settings-modal-body');
+  bodyEl.innerHTML = '<div style="text-align:center; padding:20px; color:var(--fg-muted);">Loading...</div>';
+  try {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    bodyEl.innerHTML = data.map(setting => 
+      '<label class="toggle-label">' +
+      '  <span>' + escapeHtml(setting.name) + '</span>' +
+      '  <input type="checkbox" class="setting-checkbox" data-id="' + escapeHtml(setting.id) + '" ' + (setting.enabled ? 'checked' : '') + '>' +
+      '</label>'
+    ).join('');
+  } catch (err) {
+    bodyEl.innerHTML = '<div style="text-align:center; padding:20px; color:#ef4444;">Failed to load settings</div>';
+    showToast('Failed to load settings', true);
+  }
+});
+document.getElementById('btn-close-settings').addEventListener('click', () => {
+  settingsModal.classList.remove('active');
+});
+document.getElementById('btn-save-settings').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-save-settings');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const payload = {};
+    document.querySelectorAll('.setting-checkbox').forEach(chk => {
+      payload[chk.getAttribute('data-id')] = chk.checked;
+    });
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      showToast('Settings saved successfully');
+      settingsModal.classList.remove('active');
+    } else {
+      showToast('Failed to save settings', true);
+    }
+  } catch (err) {
+    showToast('Failed to save settings', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Settings';
+  }
+});
 
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.btn-resend');

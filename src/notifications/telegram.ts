@@ -2,6 +2,8 @@ import { NotificationBroadcaster, ScanReport } from "./broadcaster";
 import { Challenge, Env } from "../types";
 
 export class TelegramBroadcaster implements NotificationBroadcaster {
+    readonly id = "telegram";
+    readonly name = "Telegram Notifications";
     private async sendTelegramMessage(env: Env, text: string, replyMarkup?: any, customChatId?: string): Promise<void> {
         const chatId = customChatId || env.TELEGRAM_CHAT_ID;
         if (!env.TELEGRAM_BOT_TOKEN || !chatId) {
