@@ -610,9 +610,31 @@ export const dashboard = `<!doctype html>
   @media (max-width: 960px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
   }
+  @media (max-width: 800px) {
+    .nav-actions .btn span { display: none; }
+    .nav-actions .btn { 
+      padding: 0;
+      width: 36px; 
+      height: 36px; 
+      justify-content: center; 
+    }
+    .live-indicator span:not(.beacon-dot) { display: none; }
+    .live-indicator { padding: 0; width: 36px; height: 36px; justify-content: center; }
+  }
   @media (max-width: 640px) {
     .stats-grid { grid-template-columns: 1fr; }
-    .nav-container { flex-wrap: wrap; }
+    .nav-container { flex-direction: column; gap: 16px; align-items: center; }
+    .brand { align-self: center; }
+    .nav-actions { 
+      justify-content: center; 
+      width: 100%; 
+      gap: 16px; 
+      background: rgba(255, 255, 255, 0.02); 
+      padding: 10px; 
+      border-radius: 14px; 
+      border: 1px solid var(--card-border);
+    }
+    .nav-bar { padding: 20px 16px; }
   }
 </style>
 </head>
