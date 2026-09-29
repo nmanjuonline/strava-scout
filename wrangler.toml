@@ -13,7 +13,9 @@ database_id = "749b09a8-5efc-40e3-bad8-4d25c78e02bf"
 [vars]
 START_ID = "6430"
 FETCH_BATCH_SIZE = "20"
-EXPO_PUSH_TOKEN = "ExponentPushToken[zNxh3OCTAcw9S-6v98UmLq]"
+# EXPO_PUSH_TOKEN removed — use dynamic registration via /api/register-token from the app instead.
+# To set a token manually for testing, run:
+#   wrangler secret put EXPO_PUSH_TOKEN
 
 # ...
 [observability.logs]

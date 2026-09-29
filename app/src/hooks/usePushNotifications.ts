@@ -17,15 +17,6 @@ if (!isExpoGo) {
       shouldShowList: true,
     }),
   });
-
-  if (Platform.OS === 'android') {
-    Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#fc5200',
-    });
-  }
 }
 
 export function usePushNotifications() {
@@ -67,7 +58,7 @@ async function registerForPushNotificationsAsync() {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
+      lightColor: '#fc5200',
     });
   }
 
