@@ -2,6 +2,8 @@ import { NotificationBroadcaster, ScanReport } from "./broadcaster";
 import { Challenge, Env } from "../types";
 
 export class ExpoBroadcaster implements NotificationBroadcaster {
+    readonly id = "expo";
+    readonly name = "Expo Push Notifications";
     async notify(env: Env, challenge: Challenge): Promise<void> {
         if (!env.EXPO_PUSH_TOKEN) return;
         const message = {

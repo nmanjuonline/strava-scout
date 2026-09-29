@@ -2,6 +2,8 @@ import { NotificationBroadcaster, ScanReport } from "./broadcaster";
 import { Challenge, Env } from "../types";
 
 export class EmailBroadcaster implements NotificationBroadcaster {
+    readonly id = "email";
+    readonly name = "Email Notifications";
     private async getSubscribers(env: Env): Promise<string[]> {
         try {
             const { results } = await env.DB.prepare("SELECT email FROM email_subscribers").all();
