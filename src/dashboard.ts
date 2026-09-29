@@ -140,15 +140,15 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
     color: inherit;
   }
   .brand-icon {
-    width: 36px;
-    height: 36px;
-    background: var(--accent-gradient);
+    width: 48px;
+    height: 48px;
+    background: transparent;
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #ffffff;
-    box-shadow: 0 4px 14px var(--accent-glow);
+    box-shadow: none;
   }
   .brand-text {
     display: flex;
@@ -747,9 +747,7 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
   <div class="nav-container">
     <a class="brand" href="/">
       <div class="brand-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-        </svg>
+        <img src="/logo.png" width="48" height="48" alt="Strava Scout" style="object-fit: contain;" />
       </div>
       <div class="brand-text">
         <div class="brand-title">
