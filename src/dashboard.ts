@@ -1309,16 +1309,6 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
   });
 });
 
-// Localize Cadence text
-const formatLocal = (utcHour) => {
-  const d = new Date();
-  d.setUTCHours(utcHour, 0, 0, 0);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
-const cadenceEl = document.getElementById('cadence-text');
-if (cadenceEl) {
-  cadenceEl.textContent = 'Cadence: ' + formatLocal(1) + ', ' + formatLocal(7) + ', ' + formatLocal(13) + ' & ' + formatLocal(19) + ' Local Time (4x daily)';
-}
 
 // Update countdown every 10 seconds
 setInterval(updateNextScanDisplay, 10000);
