@@ -2,7 +2,7 @@
 
 <div align="center">
 
-A serverless Cloudflare Worker application that automatically discovers Strava challenges and sends notifications to Telegram. This project continuously scans Strava's public challenge database, extracts challenge details, and alerts users whenever new challenges are detected.
+A serverless Cloudflare Worker application that automatically discovers Strava challenges and sends notifications to multiple platforms (Telegram, Expo Push, Email). This project continuously scans Strava's public challenge database, extracts challenge details, and alerts users whenever new challenges are detected.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange)](https://workers.cloudflare.com/)
@@ -31,7 +31,7 @@ A serverless Cloudflare Worker application that automatically discovers Strava c
 
 ## 🎯 Overview
 
-**Strava Scout** is a lightweight, serverless application that monitors Strava's challenge platform and automatically notifies users via Telegram when new challenges become available. Built on Cloudflare Workers with D1 database backend, it provides real-time challenge discovery without requiring manual checking.
+**Strava Scout** is a lightweight, serverless application that monitors Strava's challenge platform and automatically notifies users via Telegram, Expo Push, and Email when new challenges become available. Built on Cloudflare Workers with D1 database backend, it provides real-time challenge discovery without requiring manual checking.
 
 The application runs on a scheduled cron job (6x daily by default), scans sequential challenge IDs, intelligently retries failed attempts, and maintains a persistent log of all discovered challenges.
 
@@ -46,11 +46,14 @@ The application runs on a scheduled cron job (6x daily by default), scans sequen
 - **Persistent Storage**: All discovered challenges stored in Cloudflare D1 database with metadata
 
 ### Notifications
-- **Telegram Integration**: Real-time alerts via Telegram with complete challenge information
+- **Multi-Platform Alerts**: Real-time notifications via Telegram, Expo Push notifications, and Email
 - **Rich Notifications**: Includes title, description, date interval, qualifying activities, and direct Strava link
+- **Dynamic Routing**: Built-in `NotificationDispatcher` routes alerts based on configurable settings
 
 ### Web Interface
-- **Interactive Dashboard**: View scan history and all detected challenges
+- **Interactive Dashboard**: View scan history, detected challenges, and filter by activity type
+- **Responsive Design**: Strava-themed light and dark mode UI with interactive toggle
+- **Notification Preferences**: Dynamically toggle notification channels via the settings modal
 - **Real-time Status**: Monitor scanner state and last execution details
 - **Health Checks**: Lightweight endpoint for uptime monitoring
 
@@ -70,7 +73,7 @@ The application runs on a scheduled cron job (6x daily by default), scans sequen
 | **Runtime** | Cloudflare Workers | Serverless compute |
 | **Database** | Cloudflare D1 (SQLite) | Challenge data persistence |
 | **Language** | TypeScript | Type-safe implementation |
-| **Notifications** | Telegram Bot API | User alerts |
+| **Notifications** | Telegram, Expo, Email | Multi-channel user alerts |
 | **Scheduling** | Cron Triggers | Automated execution |
 
 ### Data Flow
@@ -92,7 +95,7 @@ The application runs on a scheduled cron job (6x daily by default), scans sequen
 	┌────┴────┐
 	▼         ▼
 ┌────────┐ ┌──────────┐
-│ D1 DB  │ │ Telegram │
+│ D1 DB  │ │ Channels │
 │ Store  │ │ Notify   │
 └────────┘ └──────────┘
 	│         
@@ -115,6 +118,8 @@ Before deployment, ensure you have:
 - **npm** 9.0 or later (included with Node.js)
 - **Cloudflare Account** with Workers enabled ([Sign up](https://dash.cloudflare.com/))
 - **Telegram Bot** created via [@BotFather](https://t.me/BotFather)
+- **Expo App** (Optional) for receiving mobile push notifications
+- **Email Subscription** system (built-in UI for managing email subscribers)
 - **Git** (for version control, optional)
 
 ### Estimated Costs
@@ -183,6 +188,8 @@ crons = ["0 1,5,9,13,17,21 * * *"]  # Run every 4 hours
 
 [env.production.vars]
 START_ID = "6434"  # First challenge ID to scan
+FETCH_BATCH_SIZE = "20" # Number of IDs to process per batch
+EXPO_PUSH_TOKEN = "ExponentPushToken[zNxh3OCTAcw9S-6v98UmLq]" # Your device's Expo token
 ```
 
 ### Step 5: Apply Database Schema
@@ -384,6 +391,39 @@ GET /api/status
 	  "notifiedAt": "2024-01-15T19:05:00Z"
 	}
   ]
+}
+```
+
+#### Notification Settings
+```
+GET /api/settings
+```
+
+**Response (200 OK):**
+```json
+[
+  { "id": "telegram", "name": "Telegram", "enabled": true },
+  { "id": "expo", "name": "Expo Push", "enabled": false },
+  { "id": "email", "name": "Email", "enabled": true }
+]
+```
+
+```
+POST /api/settings
+```
+
+**Request Body:**
+```json
+{
+  "id": "telegram",
+  "enabled": false
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true
 }
 ```
 
@@ -629,12 +669,13 @@ CREATE TABLE attempts (
 	 -H "Authorization: Bearer your-token"
    ```
 
-### No Telegram Notifications
+### No Notifications Received
 
-**Problem**: Challenges found but no messages in Telegram
+**Problem**: Challenges found but no messages in Telegram or Expo
 
 **Solutions**:
-1. Verify bot token and chat ID are correct:
+1. Check the Notification Settings in the dashboard (Settings icon in top right). Ensure your preferred channels are toggled ON.
+2. For Telegram: Verify bot token and chat ID are correct:
    ```bash
    npx wrangler secret list
    ```
@@ -786,6 +827,8 @@ MIT License - See LICENSE file for details
 - [Cloudflare Workers](https://workers.cloudflare.com/) - Serverless platform
 - [Strava API](https://www.strava.com/) - Challenge data source
 - [Telegram Bot API](https://core.telegram.org/bots/api) - Notification delivery
+- [Expo Push API](https://docs.expo.dev/push-notifications/overview/) - Mobile push notifications
+- Email Integration - Native subscribe/unsubscribe flow
 
 ---
 
