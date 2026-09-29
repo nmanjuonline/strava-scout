@@ -13,6 +13,7 @@ export const dashboard = `<!doctype html>
     --bg-gradient: radial-gradient(circle at 85% 0%, rgba(252, 82, 0, 0.14) 0%, transparent 45%),
                    radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
                    #090d16;
+    --nav-bg: rgba(9, 13, 22, 0.85);
     --card-bg: rgba(17, 24, 39, 0.72);
     --card-border: rgba(255, 255, 255, 0.08);
     --card-hover-border: rgba(252, 82, 0, 0.35);
@@ -27,6 +28,70 @@ export const dashboard = `<!doctype html>
     --cyan: #38bdf8;
     --emerald: #10b981;
     --amber: #f59e0b;
+    
+    --ghost-bg: rgba(255, 255, 255, 0.05);
+    --ghost-hover-bg: rgba(255, 255, 255, 0.08);
+    --ghost-border: rgba(255, 255, 255, 0.08);
+    --ghost-hover-border: rgba(255, 255, 255, 0.15);
+    --pill-bg: rgba(255, 255, 255, 0.07);
+    --pill-bg-light: rgba(255, 255, 255, 0.04);
+    --text-gradient: linear-gradient(135deg, #ffffff 40%, #fc5200 100%);
+    --modal-overlay: rgba(0,0,0,0.6);
+
+    --emerald-bg: rgba(16, 185, 129, 0.1);
+    --emerald-border: rgba(16, 185, 129, 0.25);
+    --cyan-bg: rgba(56, 189, 248, 0.15);
+    --cyan-border: rgba(56, 189, 248, 0.3);
+    --cyan-pill-bg: rgba(56, 189, 248, 0.1);
+    --cyan-pill-border: rgba(56, 189, 248, 0.25);
+    --accent-faint-bg: rgba(252, 82, 0, 0.1);
+    --accent-faint-border: rgba(252, 82, 0, 0.25);
+    --accent-hover-bg: rgba(252, 82, 0, 0.2);
+    --accent-hover-border: rgba(252, 82, 0, 0.5);
+    --featured-bg: linear-gradient(180deg, rgba(252, 82, 0, 0.08) 0%, rgba(17, 24, 39, 0.85) 100%);
+    --btn-strava-hover-color: #ffffff;
+  }
+
+  :root[data-theme="light"] {
+    --bg: #f7f7f9;
+    --bg-gradient: #f7f7f9;
+    --nav-bg: rgba(255, 255, 255, 0.85);
+    --card-bg: #ffffff;
+    --card-border: #e6e6e6;
+    --card-hover-border: rgba(252, 82, 0, 0.4);
+    --card-hover-glow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --fg: #242428;
+    --fg-muted: #6b6b75;
+    --fg-subtle: #898993;
+    --accent: #fc5200;
+    --accent-light: #fc5200;
+    --accent-glow: rgba(252, 82, 0, 0.2);
+    --accent-gradient: #fc5200;
+    --cyan: #0284c7;
+    --emerald: #059669;
+    --amber: #d97706;
+
+    --ghost-bg: rgba(0, 0, 0, 0.04);
+    --ghost-hover-bg: rgba(0, 0, 0, 0.08);
+    --ghost-border: rgba(0, 0, 0, 0.08);
+    --ghost-hover-border: rgba(0, 0, 0, 0.15);
+    --pill-bg: rgba(0, 0, 0, 0.06);
+    --pill-bg-light: rgba(0, 0, 0, 0.04);
+    --text-gradient: #242428;
+    --modal-overlay: rgba(0,0,0,0.3);
+
+    --emerald-bg: rgba(5, 150, 105, 0.08);
+    --emerald-border: rgba(5, 150, 105, 0.2);
+    --cyan-bg: rgba(2, 132, 199, 0.08);
+    --cyan-border: rgba(2, 132, 199, 0.2);
+    --cyan-pill-bg: rgba(2, 132, 199, 0.05);
+    --cyan-pill-border: rgba(2, 132, 199, 0.15);
+    --accent-faint-bg: rgba(252, 82, 0, 0.08);
+    --accent-faint-border: rgba(252, 82, 0, 0.2);
+    --accent-hover-bg: rgba(252, 82, 0, 0.12);
+    --accent-hover-border: rgba(252, 82, 0, 0.3);
+    --featured-bg: linear-gradient(180deg, rgba(252, 82, 0, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
+    --btn-strava-hover-color: #fc5200;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -48,7 +113,7 @@ export const dashboard = `<!doctype html>
     position: sticky;
     top: 0;
     z-index: 50;
-    background: rgba(9, 13, 22, 0.85);
+    background: var(--nav-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--card-border);
@@ -115,8 +180,8 @@ export const dashboard = `<!doctype html>
     font-size: 12px;
     font-weight: 600;
     color: var(--emerald);
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.25);
+    background: var(--emerald-bg);
+    border: 1px solid var(--emerald-border);
     padding: 6px 12px;
     border-radius: 9999px;
   }
@@ -161,14 +226,20 @@ export const dashboard = `<!doctype html>
     cursor: not-allowed;
   }
   .btn-ghost {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ghost-bg);
     color: var(--fg-muted);
-    border: 1px solid var(--card-border);
+    border: 1px solid var(--ghost-border);
   }
   .btn-ghost:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--ghost-hover-bg);
     color: var(--fg);
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--ghost-hover-border);
+  }
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
   }
   .spin { animation: spin 1s linear infinite; }
   @keyframes spin { 100% { transform: rotate(360deg); } }
@@ -201,7 +272,7 @@ export const dashboard = `<!doctype html>
     margin-bottom: 10px;
   }
   .gradient-text {
-    background: linear-gradient(135deg, #ffffff 40%, #fc5200 100%);
+    background: var(--text-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
@@ -239,7 +310,7 @@ export const dashboard = `<!doctype html>
   }
   .stat-card.featured {
     border-color: rgba(252, 82, 0, 0.4);
-    background: linear-gradient(180deg, rgba(252, 82, 0, 0.08) 0%, rgba(17, 24, 39, 0.85) 100%);
+    background: var(--featured-bg);
     box-shadow: 0 4px 20px rgba(252, 82, 0, 0.1);
   }
   .stat-header {
@@ -262,7 +333,7 @@ export const dashboard = `<!doctype html>
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--pill-bg-light);
     border: 1px solid var(--card-border);
     display: flex;
     align-items: center;
@@ -270,8 +341,8 @@ export const dashboard = `<!doctype html>
     color: var(--fg-muted);
   }
   .stat-card.featured .stat-icon {
-    background: rgba(252, 82, 0, 0.15);
-    border-color: rgba(252, 82, 0, 0.3);
+    background: var(--accent-faint-bg);
+    border-color: var(--accent-faint-border);
     color: var(--accent);
   }
   .stat-value {
@@ -297,9 +368,9 @@ export const dashboard = `<!doctype html>
     font-weight: 700;
     padding: 3px 8px;
     border-radius: 6px;
-    background: rgba(56, 189, 248, 0.15);
+    background: var(--cyan-bg);
     color: var(--cyan);
-    border: 1px solid rgba(56, 189, 248, 0.3);
+    border: 1px solid var(--cyan-border);
     width: fit-content;
     margin-top: 4px;
   }
@@ -311,15 +382,15 @@ export const dashboard = `<!doctype html>
     font-weight: 600;
     padding: 3px 8px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--pill-bg);
     color: var(--fg-muted);
     width: fit-content;
     margin-top: 4px;
   }
   .stat-tag.success {
-    background: rgba(16, 185, 129, 0.1);
+    background: var(--emerald-bg);
     color: var(--emerald);
-    border: 1px solid rgba(16, 185, 129, 0.25);
+    border: 1px solid var(--emerald-border);
   }
 
   /* Controls & Toolbar */
@@ -348,7 +419,7 @@ export const dashboard = `<!doctype html>
     font-weight: 600;
     padding: 2px 10px;
     border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--pill-bg);
     color: var(--fg-muted);
   }
   .toolbar-controls {
@@ -395,7 +466,7 @@ export const dashboard = `<!doctype html>
     flex-wrap: wrap;
   }
   .filter-chip {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--pill-bg-light);
     border: 1px solid var(--card-border);
     color: var(--fg-muted);
     padding: 6px 12px;
@@ -407,7 +478,7 @@ export const dashboard = `<!doctype html>
     font-family: inherit;
   }
   .filter-chip:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--ghost-hover-bg);
     color: var(--fg);
   }
   .filter-chip.active {
@@ -451,7 +522,7 @@ export const dashboard = `<!doctype html>
     height: 64px;
     border-radius: 12px;
     object-fit: cover;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--pill-bg);
     flex-shrink: 0;
   }
   .challenge-card:hover {
@@ -471,9 +542,9 @@ export const dashboard = `<!doctype html>
     font-weight: 600;
     padding: 3px 8px;
     border-radius: 6px;
-    background: rgba(56, 189, 248, 0.1);
+    background: var(--cyan-pill-bg);
     color: var(--cyan);
-    border: 1px solid rgba(56, 189, 248, 0.25);
+    border: 1px solid var(--cyan-pill-border);
   }
   .date-badge {
     display: inline-flex;
@@ -506,17 +577,17 @@ export const dashboard = `<!doctype html>
     font-size: 12px;
     font-weight: 700;
     color: var(--accent-light);
-    background: rgba(252, 82, 0, 0.1);
-    border: 1px solid rgba(252, 82, 0, 0.25);
+    background: var(--accent-faint-bg);
+    border: 1px solid var(--accent-faint-border);
     padding: 6px 14px;
     border-radius: 8px;
     text-decoration: none;
     transition: all 0.2s;
   }
   .btn-strava:hover {
-    background: rgba(252, 82, 0, 0.2);
-    border-color: rgba(252, 82, 0, 0.5);
-    color: #ffffff;
+    background: var(--accent-hover-bg);
+    border-color: var(--accent-hover-border);
+    color: var(--btn-strava-hover-color);
     transform: translateX(2px);
   }
   .btn-resend {
@@ -526,17 +597,17 @@ export const dashboard = `<!doctype html>
     font-size: 12px;
     font-weight: 700;
     color: var(--accent-light);
-    background: rgba(252, 82, 0, 0.1);
-    border: 1px solid rgba(252, 82, 0, 0.25);
+    background: var(--accent-faint-bg);
+    border: 1px solid var(--accent-faint-border);
     padding: 6px 14px;
     border-radius: 8px;
     text-decoration: none;
     transition: all 0.2s;
   }
   .btn-resend:hover {
-    background: rgba(252, 82, 0, 0.2);
-    border-color: rgba(252, 82, 0, 0.5);
-    color: #ffffff;
+    background: var(--accent-hover-bg);
+    border-color: var(--accent-hover-border);
+    color: var(--btn-strava-hover-color);
     transform: translateX(2px);
     cursor: pointer;
   }
@@ -587,7 +658,7 @@ export const dashboard = `<!doctype html>
   /* Settings Modal */
   .modal {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    background: var(--modal-overlay); backdrop-filter: blur(4px);
     z-index: 200; display: none; align-items: center; justify-content: center;
   }
   .modal.active { display: flex; }
@@ -601,10 +672,33 @@ export const dashboard = `<!doctype html>
   .btn-close { background: none; border: none; color: var(--fg-muted); font-size: 24px; cursor: pointer; }
   .toggle-label {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding: 12px 0; border-bottom: 1px solid var(--ghost-border);
     font-size: 15px; cursor: pointer;
   }
   .toggle-label:last-child { border-bottom: none; }
+  input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 44px; height: 24px;
+    background: var(--ghost-border);
+    border-radius: 12px; position: relative;
+    cursor: pointer; outline: none;
+    transition: background 0.3s;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  }
+  input[type="checkbox"]::after {
+    content: ''; position: absolute;
+    top: 2px; left: 2px;
+    width: 20px; height: 20px;
+    background: #ffffff; border-radius: 50%;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  input[type="checkbox"]:checked {
+    background: var(--accent);
+  }
+  input[type="checkbox"]:checked::after {
+    transform: translateX(20px);
+  }
   .modal-footer { margin-top: 24px; display: flex; justify-content: flex-end; }
 
   @media (max-width: 960px) {
@@ -629,7 +723,7 @@ export const dashboard = `<!doctype html>
       justify-content: center; 
       width: 100%; 
       gap: 16px; 
-      background: rgba(255, 255, 255, 0.02); 
+      background: var(--ghost-bg); 
       padding: 10px; 
       border-radius: 14px; 
       border: 1px solid var(--card-border);
@@ -637,6 +731,10 @@ export const dashboard = `<!doctype html>
     .nav-bar { padding: 20px 16px; }
   }
 </style>
+<script>
+  const savedTheme = localStorage.getItem('strava-scout-theme');
+  if (savedTheme) { document.documentElement.setAttribute('data-theme', savedTheme); }
+</script>
 </head>
 <body>
 
@@ -660,25 +758,30 @@ export const dashboard = `<!doctype html>
         <span class="beacon-dot"></span>
         <span>Scheduled 4x/day</span>
       </div>
-      <button class="btn btn-ghost" id="btn-refresh" title="Refresh dashboard data">
+      <button class="btn btn-ghost btn-icon" id="btn-refresh" title="Refresh dashboard data">
         <svg id="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/>
         </svg>
-        <span>Refresh</span>
       </button>
-      <button class="btn btn-ghost" id="btn-settings" title="Notification Settings">
+      <button class="btn btn-ghost btn-icon" id="btn-theme" title="Toggle Theme">
+        <svg id="theme-icon-light" style="display:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg id="theme-icon-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+      <button class="btn btn-ghost btn-icon" id="btn-settings" title="Notification Settings">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"></circle>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
-        <span>Settings</span>
       </button>
-      <a href="/subscribe" class="btn btn-ghost" title="Subscribe to email notifications">
+      <a href="/subscribe" class="btn btn-ghost btn-icon" title="Subscribe to email notifications">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
           <polyline points="22,6 12,13 2,6"></polyline>
         </svg>
-        <span>Subscribe</span>
       </a>
       <button class="btn btn-primary" id="btn-scan" title="Trigger an immediate scan">
         <svg id="scan-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1092,6 +1195,35 @@ async function triggerScan() {
     scanIcon.classList.remove('spin');
   }
 }
+
+// Theme Toggle
+const btnTheme = document.getElementById('btn-theme');
+const iconLight = document.getElementById('theme-icon-light');
+const iconDark = document.getElementById('theme-icon-dark');
+
+function updateThemeIcon() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  if (isLight) {
+    iconLight.style.display = 'none';
+    iconDark.style.display = 'block';
+  } else {
+    iconLight.style.display = 'block';
+    iconDark.style.display = 'none';
+  }
+}
+updateThemeIcon();
+
+btnTheme.addEventListener('click', () => {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  if (isLight) {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('strava-scout-theme', 'dark');
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('strava-scout-theme', 'light');
+  }
+  updateThemeIcon();
+});
 
 // Event Listeners
 document.getElementById('btn-refresh').addEventListener('click', load);

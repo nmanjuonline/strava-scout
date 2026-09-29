@@ -14,17 +14,59 @@ export const subscribePage = `
             --bg-gradient: radial-gradient(circle at 85% 0%, rgba(252, 82, 0, 0.14) 0%, transparent 45%),
                            radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
                            #090d16;
+            --nav-bg: rgba(9, 13, 22, 0.85);
             --card-bg: rgba(17, 24, 39, 0.72);
             --card-border: rgba(255, 255, 255, 0.08);
+            --card-hover-border: rgba(252, 82, 0, 0.35);
+            --card-hover-glow: 0 12px 32px -8px rgba(252, 82, 0, 0.2);
             --fg: #f8fafc;
             --fg-muted: #94a3b8;
+            --fg-subtle: #64748b;
             --accent: #fc5200;
             --accent-light: #ff7a3d;
             --accent-glow: rgba(252, 82, 0, 0.3);
             --accent-gradient: linear-gradient(135deg, #fc5200 0%, #ff7a3d 100%);
+            --cyan: #38bdf8;
+            --emerald: #10b981;
+            --amber: #f59e0b;
+            --ghost-bg: rgba(255, 255, 255, 0.05);
+            --ghost-hover-bg: rgba(255, 255, 255, 0.08);
+            --ghost-border: rgba(255, 255, 255, 0.08);
+            --ghost-hover-border: rgba(255, 255, 255, 0.15);
+            --pill-bg: rgba(255, 255, 255, 0.07);
+            --pill-bg-light: rgba(255, 255, 255, 0.04);
+            --text-gradient: linear-gradient(135deg, #ffffff 40%, #fc5200 100%);
             --success: #10b981;
             --error: #ef4444;
         }
+
+        :root[data-theme="light"] {
+            --bg: #f7f7f9;
+            --bg-gradient: #f7f7f9;
+            --nav-bg: rgba(255, 255, 255, 0.85);
+            --card-bg: #ffffff;
+            --card-border: #e6e6e6;
+            --card-hover-border: rgba(252, 82, 0, 0.4);
+            --card-hover-glow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --fg: #242428;
+            --fg-muted: #6b6b75;
+            --fg-subtle: #898993;
+            --accent: #fc5200;
+            --accent-light: #fc5200;
+            --accent-glow: rgba(252, 82, 0, 0.2);
+            --accent-gradient: #fc5200;
+            --cyan: #0284c7;
+            --emerald: #059669;
+            --amber: #d97706;
+            --ghost-bg: rgba(0, 0, 0, 0.04);
+            --ghost-hover-bg: rgba(0, 0, 0, 0.08);
+            --ghost-border: rgba(0, 0, 0, 0.08);
+            --ghost-hover-border: rgba(0, 0, 0, 0.15);
+            --pill-bg: rgba(0, 0, 0, 0.06);
+            --pill-bg-light: rgba(0, 0, 0, 0.04);
+            --text-gradient: #242428;
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-gradient);
@@ -50,7 +92,7 @@ export const subscribePage = `
             text-align: center;
         }
         h1 {
-            background: linear-gradient(135deg, #ffffff 40%, #fc5200 100%);
+            background: var(--text-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-top: 0;
@@ -71,7 +113,7 @@ export const subscribePage = `
         }
         input[type="email"] {
             padding: 14px;
-            background: rgba(0, 0, 0, 0.2);
+            background: var(--ghost-bg);
             border: 1px solid var(--card-border);
             border-radius: 10px;
             font-size: 15px;
@@ -141,6 +183,10 @@ export const subscribePage = `
             color: var(--fg);
         }
     </style>
+    <script>
+        const savedTheme = localStorage.getItem('strava-scout-theme');
+        if (savedTheme) { document.documentElement.setAttribute('data-theme', savedTheme); }
+    </script>
 </head>
 <body>
     <div class="container">
