@@ -33,7 +33,7 @@ A serverless Cloudflare Worker application that automatically discovers Strava c
 
 **Strava Scout** is a lightweight, serverless application that monitors Strava's challenge platform and automatically notifies users via Telegram when new challenges become available. Built on Cloudflare Workers with D1 database backend, it provides real-time challenge discovery without requiring manual checking.
 
-The application runs on a scheduled cron job (twice daily by default), scans sequential challenge IDs, intelligently retries failed attempts, and maintains a persistent log of all discovered challenges.
+The application runs on a scheduled cron job (6x daily by default), scans sequential challenge IDs, intelligently retries failed attempts, and maintains a persistent log of all discovered challenges.
 
 ---
 
@@ -78,7 +78,7 @@ The application runs on a scheduled cron job (twice daily by default), scans seq
 ```
 ┌──────────────────┐
 │ Cron Trigger     │
-│ (2x daily)       │
+│ (6x daily)       │
 └────────┬─────────┘
 		 │
 		 ▼
@@ -119,7 +119,7 @@ Before deployment, ensure you have:
 
 ### Estimated Costs
 
-- **Cloudflare Workers**: Free tier includes 100,000 requests/day (sufficient for twice-daily scans)
+- **Cloudflare Workers**: Free tier includes 100,000 requests/day (sufficient for 6x-daily scans)
 - **D1 Database**: Free tier includes 3 databases with 5 GB storage
 - **Telegram**: Free (via Telegram Bot API)
 
@@ -179,7 +179,7 @@ database_name = "strava-scout"
 database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # Paste your ID here
 
 [triggers]
-crons = ["0 7,19 * * *"]  # Run at 07:00 and 19:00 UTC
+crons = ["0 1,5,9,13,17,21 * * *"]  # Run every 4 hours
 
 [env.production.vars]
 START_ID = "6434"  # First challenge ID to scan
@@ -270,7 +270,7 @@ Edit the `crons` field in `wrangler.toml`:
 
 ```toml
 # Examples:
-crons = ["0 7,19 * * *"]     # Daily at 07:00 and 19:00 UTC (default)
+crons = ["0 1,5,9,13,17,21 * * *"]     # 6x Daily (every 4 hours) (default)
 crons = ["0 */6 * * *"]       # Every 6 hours
 crons = ["30 9 * * MON-FRI"]  # Weekdays at 09:30 UTC
 crons = ["0 0 * * *"]         # Daily at midnight UTC

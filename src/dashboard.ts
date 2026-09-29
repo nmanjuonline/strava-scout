@@ -756,7 +756,7 @@ export const dashboard = `<!doctype html>
     <div class="nav-actions">
       <div class="live-indicator">
         <span class="beacon-dot"></span>
-        <span>Scheduled 4x/day</span>
+        <span>Scheduled 6x/day</span>
       </div>
       <button class="btn btn-ghost btn-icon" id="btn-refresh" title="Refresh dashboard data">
         <svg id="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -825,7 +825,7 @@ export const dashboard = `<!doctype html>
       </div>
       <div class="stat-meta" style="margin-top: 10px;">
         <div id="next-scan-local-meta">Local Time</div>
-        <div id="cadence-text" style="font-size: 11px; opacity: 0.7;">Cadence: 01:00, 07:00, 13:00 & 19:00 UTC (4x daily)</div>
+        <div id="cadence-text" style="font-size: 11px; opacity: 0.7;">Cadence: 01:00, 05:00, 09:00, 13:00, 17:00 & 21:00 UTC (6x daily)</div>
       </div>
     </div>
 
@@ -978,7 +978,7 @@ function computeClientNextScanIso() {
   //if (now.getTime() < slot2.getTime()) return slot2.toISOString();
   //return slotTomorrow.toISOString();
 
-  const slots = [1, 7, 13, 19].map(h => new Date(Date.UTC(y, m, d, h, 0, 0, 0)));
+  const slots = [1, 5, 9, 13, 17, 21].map(h => new Date(Date.UTC(y, m, d, h, 0, 0, 0)));
   const next = slots.find(s => now.getTime() < s.getTime());
   if (next) return next.toISOString();
   return new Date(Date.UTC(y, m, d + 1, 1, 0, 0, 0)).toISOString();
