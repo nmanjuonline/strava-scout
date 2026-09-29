@@ -5,126 +5,164 @@ export const subscribePage = `
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Subscribe to Strava Scout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #fc4c02;
-            --primary-hover: #e34402;
-            --bg: #f9f9f9;
-            --surface: #ffffff;
-            --text: #333333;
-            --text-light: #666666;
-            --border: #e0e0e0;
-            --success: #4caf50;
-            --error: #f44336;
+            --bg: #090d16;
+            --bg-gradient: radial-gradient(circle at 85% 0%, rgba(252, 82, 0, 0.14) 0%, transparent 45%),
+                           radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+                           #090d16;
+            --card-bg: rgba(17, 24, 39, 0.72);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --fg: #f8fafc;
+            --fg-muted: #94a3b8;
+            --accent: #fc5200;
+            --accent-light: #ff7a3d;
+            --accent-glow: rgba(252, 82, 0, 0.3);
+            --accent-gradient: linear-gradient(135deg, #fc5200 0%, #ff7a3d 100%);
+            --success: #10b981;
+            --error: #ef4444;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--fg);
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
+            -webkit-font-smoothing: antialiased;
         }
         .container {
-            background-color: var(--surface);
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
             padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            width: 100%;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            max-width: 420px;
+            width: 90%;
             text-align: center;
         }
         h1 {
-            color: var(--primary);
+            background: linear-gradient(135deg, #ffffff 40%, #fc5200 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
             margin-top: 0;
-            font-size: 24px;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
         }
         p {
-            color: var(--text-light);
-            line-height: 1.5;
-            margin-bottom: 24px;
+            color: var(--fg-muted);
+            line-height: 1.6;
+            margin-bottom: 28px;
+            font-size: 15px;
         }
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
         }
         input[type="email"] {
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 16px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            font-size: 15px;
+            color: var(--fg);
             outline: none;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
+            font-family: inherit;
         }
         input[type="email"]:focus {
-            border-color: var(--primary);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(252, 82, 0, 0.15);
         }
         button {
-            background-color: var(--primary);
-            color: white;
+            background: var(--accent-gradient);
+            color: #ffffff;
             border: none;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 14px var(--accent-glow);
+            font-family: inherit;
         }
-        button:hover {
-            background-color: var(--primary-hover);
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--accent-glow);
         }
         button:disabled {
-            background-color: #cccccc;
+            opacity: 0.6;
             cursor: not-allowed;
+            transform: none;
         }
         .message {
-            margin-top: 16px;
-            padding: 10px;
-            border-radius: 6px;
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
             display: none;
         }
         .message.success {
             display: block;
-            background-color: rgba(76, 175, 80, 0.1);
+            background: rgba(16, 185, 129, 0.1);
             color: var(--success);
-            border: 1px solid rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.25);
         }
         .message.error {
             display: block;
-            background-color: rgba(244, 67, 54, 0.1);
+            background: rgba(239, 68, 68, 0.1);
             color: var(--error);
-            border: 1px solid rgba(244, 67, 54, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.25);
         }
         .back-link {
-            display: inline-block;
-            margin-top: 24px;
-            color: var(--text-light);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 28px;
+            color: var(--fg-muted);
             text-decoration: none;
             font-size: 14px;
+            font-weight: 600;
+            transition: color 0.2s;
         }
         .back-link:hover {
-            text-decoration: underline;
+            color: var(--fg);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Strava Scout</h1>
-        <p>Subscribe to receive email notifications as soon as new Strava challenges are found.</p>
+        <h1>Strava Watchtower</h1>
+        <p>Subscribe to receive instant email notifications as soon as new Strava challenges are discovered.</p>
         
         <form id="subscribeForm">
             <div class="form-group">
                 <input type="email" id="email" placeholder="Enter your email address" required autocomplete="email" />
-                <button type="submit" id="submitBtn">Subscribe</button>
+                <button type="submit" id="submitBtn">Subscribe Now</button>
             </div>
         </form>
         
         <div id="message" class="message"></div>
         
-        <a href="/" class="back-link">← Back to Dashboard</a>
+        <a href="/" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to Dashboard
+        </a>
     </div>
 
     <script>
@@ -167,7 +205,7 @@ export const subscribePage = `
                 messageEl.textContent = 'A network error occurred. Please try again later.';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Subscribe';
+                submitBtn.textContent = 'Subscribe Now';
             }
         });
     </script>
