@@ -3,20 +3,20 @@ import { notifications } from "./notifications";
 
 async function verifyAuth(request: Request, env: Env): Promise<boolean> {
     if (!env.AUTH0_DOMAIN) return true; // Auth not configured, allow access
-    
+
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) return false;
-    
+
     const token = authHeader.substring(7);
     try {
         const res = await fetch(`https://${env.AUTH0_DOMAIN}/userinfo`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
         if (!res.ok) return false;
-        
+
         const userInfo = await res.json() as { email?: string };
         if (!env.ADMIN_EMAILS) return true; // If no admins configured, everyone with a valid Google account is allowed
-        
+
         const allowedAdmins = env.ADMIN_EMAILS.split(',').map(e => e.trim().toLowerCase());
         if (userInfo.email && allowedAdmins.includes(userInfo.email.toLowerCase())) {
             return true;
@@ -122,13 +122,36 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
     await db.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(key, value).run();
 }
 
+async function sendTelegramAdminAlert(env: Env, request: Request, title: string, extraInfo: Record<string, string> = {}): Promise<void> {
+    if (!env.TELEGRAM_ADMIN_CHAT_ID || !env.TELEGRAM_BOT_TOKEN) return;
+    try {
+        const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+        const ip = request.headers.get("cf-connecting-ip") || "Unknown IP";
+        const ua = request.headers.get("user-agent") || "Unknown Device";
+        
+        let text = `*${esc(title)}*\n\n`;
+        for (const [key, value] of Object.entries(extraInfo)) {
+            text += `${esc(key)}: ${esc(value)}\n`;
+        }
+        text += `IP: ${esc(ip)}\nDevice: ${esc(ua)}`;
+        
+        const telegramUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+        await fetch(telegramUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: env.TELEGRAM_ADMIN_CHAT_ID, text: text, parse_mode: "MarkdownV2" }),
+        });
+    } catch(e) {
+        console.error(e);
+    }
+}
 
 
 async function scan(env: Env, isManual: boolean = false): Promise<{ found: number; missing: number; errors: number }> {
     const fetchBatchSize = env.FETCH_BATCH_SIZE ? Number(env.FETCH_BATCH_SIZE) : 8;
     const stateKeys = ["next_id", "consecutive_missing"];
     const stateRows = await env.DB.prepare(`SELECT key, value FROM scan_state WHERE key IN (?, ?)`).bind(...stateKeys).all();
-    const stateMap = new Map(((stateRows.results as {key: string, value: string}[]) || []).map(r => [r.key, r.value]));
+    const stateMap = new Map(((stateRows.results as { key: string, value: string }[]) || []).map(r => [r.key, r.value]));
     let nextId = Number(stateMap.get("next_id") ?? env.START_ID);
     let consecutiveMissing = Number(stateMap.get("consecutive_missing") ?? "0");
     let found = 0;
@@ -145,28 +168,28 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
         "  AND c.qualifying_activities = 'Activities unavailable'" +
         ")"
     ).bind(new Date().toISOString()).run();
-    
+
     // Pick all missing/errored records without a DB limit
-    const retryQuery = isManual 
+    const retryQuery = isManual
         ? `SELECT id FROM attempts WHERE status != 'found' ORDER BY next_retry_at ASC`
         : `SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY next_retry_at ASC`;
-    const retryRows = isManual 
+    const retryRows = isManual
         ? await env.DB.prepare(retryQuery).all()
         : await env.DB.prepare(retryQuery).bind(new Date().toISOString()).all();
-    
-    let retryIdsArray = ((retryRows.results as {id: number}[]) ?? []).map((row) => row.id);
-    
+
+    let retryIdsArray = ((retryRows.results as { id: number }[]) ?? []).map((row) => row.id);
+
     // Cloudflare limits subrequests to 50 per Worker invocation (Free tier).
     // Strava redirects cost 2 subrequests per ID, and Telegram sends 1 subrequest per new challenge.
     // 12 IDs * 2 = 24 subrequests + 12 Telegram + 3 Reports = 39 (Safely under 50 limit).
     const MAX_SAFE_IDS = 12;
-    
+
     // Guarantee up to 4 slots for backlog retries so they don't get starved
     const retrySlots = Math.min(4, retryIdsArray.length);
-    
+
     // The remaining slots go to forward progress
     const actualFetchBatchSize = Math.min(fetchBatchSize, MAX_SAFE_IDS - retrySlots);
-    
+
     if (retryIdsArray.length > retrySlots) {
         retryIdsArray = retryIdsArray.slice(0, retrySlots);
     }
@@ -180,7 +203,7 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
     let deferredMissingNewIds: number[] = [];
     let highestFoundNewId = -1;
     const newChallenges: Challenge[] = [];
-    
+
     const foundIds: number[] = [];
     const missingIds: number[] = [];
     const errorIds: number[] = [];
@@ -202,7 +225,7 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
     if (validIds.length > 0) {
         const placeholders = validIds.map(() => "?").join(",");
         const existingRows = await env.DB.prepare(`SELECT id FROM challenges WHERE id IN (${placeholders})`).bind(...validIds).all();
-        (existingRows.results as {id: number}[] | undefined)?.forEach(r => existingIdsSet.add(r.id));
+        (existingRows.results as { id: number }[] | undefined)?.forEach(r => existingIdsSet.add(r.id));
     }
 
     const now = new Date().toISOString();
@@ -249,7 +272,7 @@ async function scan(env: Env, isManual: boolean = false): Promise<{ found: numbe
         consecutiveMissing = 0;
         const existing = existingIdsSet.has(id);
         const detectedAtFallback = now;
-        
+
         dbStatements.push(env.DB.prepare("INSERT OR REPLACE INTO challenges (id, title, description, date_interval, qualifying_activities, url, image_url, detected_at, notified_at) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT detected_at FROM challenges WHERE id = ?), ?), (SELECT notified_at FROM challenges WHERE id = ?))").bind(id, challenge.title, challenge.description, challenge.dateInterval, challenge.qualifyingActivities, challenge.url, challenge.imageUrl || null, id, detectedAtFallback, id));
         dbStatements.push(env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'found', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'found', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at").bind(id, now, retryDelay));
 
@@ -295,17 +318,17 @@ function getNextScheduledScan(now = new Date()): string {
     const y = now.getUTCFullYear();
     const m = now.getUTCMonth();
     const d = now.getUTCDate();
-    
+
     // The scheduled hours in UTC (matches wrangler.toml: 1, 5, 9, 13, 17, 21)
     const scheduledHoursUTC = [1, 5, 9, 13, 17, 21];
-    
+
     for (const hour of scheduledHoursUTC) {
         const slot = new Date(Date.UTC(y, m, d, hour, 0, 0, 0));
         if (now.getTime() < slot.getTime()) {
             return slot.toISOString();
         }
     }
-    
+
     // If now is past the last slot of the day, the next slot is the first one tomorrow
     return new Date(Date.UTC(y, m, d + 1, scheduledHoursUTC[0], 0, 0, 0)).toISOString();
 }
@@ -335,6 +358,28 @@ export default {
             });
         }
 
+        if (url.pathname.startsWith("/api/track/")) {
+            const source = url.pathname.replace("/api/track/", "");
+            
+            const trackingConfig: Record<string, { message: string, redirect: string }> = {
+                "android": {
+                    message: "App Downloaded",
+                    redirect: "https://nightly.link/nmanjuonline/strava-scout/workflows/build-android.yml/main/Strava%20Scout.zip"
+                },
+                "telegram": {
+                    message: "Telegram Channel Click",
+                    redirect: "https://t.me/strava_scout"
+                }
+            };
+
+            const target = trackingConfig[source];
+            if (target) {
+                await sendTelegramAdminAlert(env, request, target.message);
+                return Response.redirect(target.redirect, 302);
+            }
+            return new Response("Not found", { status: 404 });
+        }
+
         if (url.pathname === "/api/subscribe" && request.method === "POST") {
             try {
                 const body = await request.json() as { email: string };
@@ -342,6 +387,7 @@ export default {
                     return Response.json({ error: "Invalid email address" }, { status: 400 });
                 }
                 await env.DB.prepare("INSERT INTO email_subscribers (email) VALUES (?) ON CONFLICT(email) DO NOTHING").bind(body.email).run();
+                await sendTelegramAdminAlert(env, request, "New Email Subscription", { Email: body.email });
                 return Response.json({ success: true });
             } catch (error) {
                 return Response.json({ error: "Failed to subscribe" }, { status: 500 });
@@ -398,7 +444,7 @@ export default {
             try {
                 // Lazy migration to add image_url column since CLI remote D1 auth failed
                 await env.DB.prepare("ALTER TABLE challenges ADD COLUMN image_url TEXT;").run();
-            } catch(e) {
+            } catch (e) {
                 // Ignore if it already exists
             }
             return Response.json({ ok: true });
