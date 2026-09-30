@@ -91,6 +91,7 @@ export const subscribePage = `
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
             max-width: 420px;
             width: 90%;
+            box-sizing: border-box;
             text-align: center;
             margin: auto;
         }
@@ -259,6 +260,19 @@ export const subscribePage = `
         }
         .back-link:hover {
             color: var(--fg);
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px 20px;
+                width: 95%;
+            }
+            .option-card {
+                padding: 20px 16px;
+            }
+            h1 {
+                font-size: 24px;
+            }
         }
     </style>
     <script>
