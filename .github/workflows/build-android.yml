@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - stage
     paths:
       - 'app/**'
 
@@ -41,6 +42,8 @@ jobs:
 
       - name: Run Expo Prebuild
         working-directory: ./app
+        env:
+          APP_ENV: ${{ github.ref_name == 'stage' && 'stage' || 'production' }}
         run: npx expo prebuild --platform android --clean
 
       - name: Build APK

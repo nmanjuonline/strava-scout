@@ -361,10 +361,13 @@ export default {
         if (url.pathname.startsWith("/api/track/")) {
             const source = url.pathname.replace("/api/track/", "");
             
+            const isStage = env.APP_ENV === "stage";
+            const branch = isStage ? "stage" : "main";
+            
             const trackingConfig: Record<string, { message: string, redirect: string }> = {
                 "android": {
-                    message: "App Downloaded",
-                    redirect: "https://nightly.link/nmanjuonline/strava-scout/workflows/build-android.yml/main/Strava%20Scout.zip"
+                    message: `App Downloaded (${branch})`,
+                    redirect: `https://nightly.link/nmanjuonline/strava-scout/workflows/build-android.yml/${branch}/Strava%20Scout.zip`
                 },
                 "telegram": {
                     message: "Telegram Channel Click",
@@ -449,26 +452,39 @@ export default {
             }
             return Response.json({ ok: true });
         }
-        if (url.pathname === "/api/status") {
-            const isAdmin = await verifyAuth(request, env);
-            const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges] = await Promise.all([
-                state(env.DB, "last_scan_at", ""),
-                state(env.DB, "next_id", env.START_ID),
-                state(env.DB, "consecutive_missing", "0"),
-                state(env.DB, "last_scan_result", "Never scanned"),
-                env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, image_url AS imageUrl, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all()
-            ]);
-            const nextScanAt = getNextScheduledScan();
+        if (url.pathname === "/api/debug") {
             return Response.json({
-                isAdmin,
-                lastScanAt,
-                nextId: isAdmin ? Number(nextId) : undefined,
-                consecutiveMissing: isAdmin ? Number(consecutiveMissing) : undefined,
-                lastScanResult: isAdmin ? lastScanResult : undefined,
-                nextScanAt,
-                cronSchedule: "0 1,5,9,13,17,21 * * *",
-                challenges: challenges.results ?? []
+                envKeys: Object.keys(env),
+                hasDB: !!env.DB,
+                dbType: typeof env.DB,
+                startId: env.START_ID,
+                auth0: !!env.AUTH0_DOMAIN
             });
+        }
+        if (url.pathname === "/api/status") {
+            try {
+                const isAdmin = await verifyAuth(request, env);
+                const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges] = await Promise.all([
+                    state(env.DB, "last_scan_at", ""),
+                    state(env.DB, "next_id", env.START_ID),
+                    state(env.DB, "consecutive_missing", "0"),
+                    state(env.DB, "last_scan_result", "Never scanned"),
+                    env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, image_url AS imageUrl, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all()
+                ]);
+                const nextScanAt = getNextScheduledScan();
+                return Response.json({
+                    isAdmin,
+                    lastScanAt,
+                    nextId: isAdmin ? Number(nextId) : undefined,
+                    consecutiveMissing: isAdmin ? Number(consecutiveMissing) : undefined,
+                    lastScanResult: isAdmin ? lastScanResult : undefined,
+                    nextScanAt,
+                    cronSchedule: "0 1,5,9,13,17,21 * * *",
+                    challenges: challenges.results ?? []
+                });
+            } catch (error: any) {
+                return Response.json({ error: "Internal Server Error in /api/status", detail: String(error.stack || error), dbPresent: !!env.DB }, { status: 500 });
+            }
         }
         const challengesMatch = url.pathname.match(/^\/api\/challenges$/);
         if (challengesMatch && request.method === "GET") {
