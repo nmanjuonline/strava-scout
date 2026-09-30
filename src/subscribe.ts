@@ -289,28 +289,6 @@ export const subscribePage = `
         <p class="subtitle">Choose how you want to be notified when new Strava challenges are discovered.</p>
         
         <div class="options-container">
-            <!-- Email Option -->
-            <div class="option-card">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                        <polyline points="22,6 12,13 2,6"></polyline>
-                    </svg>
-                    Email
-                </h3>
-                <p class="option-desc">Receive instant emails directly to your inbox.</p>
-                <form id="subscribeForm">
-                    <div class="form-group">
-                        <input type="email" id="email" placeholder="Enter your email address" required autocomplete="email" />
-                        <button type="submit" id="submitBtn">Subscribe via Email</button>
-                    </div>
-                </form>
-                <div style="text-align: center; margin-top: 12px;">
-                    <a href="#" id="toggleActionBtn" style="color: var(--fg-muted); font-size: 13px; text-decoration: underline;">Want to unsubscribe instead?</a>
-                </div>
-                <div id="message" class="message"></div>
-            </div>
-
             <!-- Telegram Option -->
             <div class="option-card">
                 <h3>
@@ -335,6 +313,28 @@ export const subscribePage = `
                 </h3>
                 <p class="option-desc">Download our native Android app for rich push notifications.</p>
                 <a href="https://nightly.link/nmanjuonline/strava-scout/workflows/build-android.yml/main/Strava%20Scout.zip" class="btn app-btn">Download Latest APK</a>
+            </div>
+
+            <!-- Email Option -->
+            <div class="option-card">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                    Email
+                </h3>
+                <p class="option-desc">Receive instant emails directly to your inbox.</p>
+                <form id="subscribeForm">
+                    <div class="form-group">
+                        <input type="email" id="email" placeholder="Enter your email address" required autocomplete="email" />
+                        <button type="submit" id="submitBtn">Subscribe via Email</button>
+                    </div>
+                </form>
+                <div style="text-align: center; margin-top: 12px;">
+                    <a href="#" id="toggleActionBtn" style="color: var(--fg-muted); font-size: 13px; text-decoration: underline;">Want to unsubscribe instead?</a>
+                </div>
+                <div id="message" class="message"></div>
             </div>
         </div>
         
