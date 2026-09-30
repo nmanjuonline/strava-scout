@@ -404,6 +404,7 @@ export default {
             return Response.json({ ok: true });
         }
         if (url.pathname === "/api/status") {
+            const isAdmin = await verifyAuth(request, env);
             const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges] = await Promise.all([
                 state(env.DB, "last_scan_at", ""),
                 state(env.DB, "next_id", env.START_ID),
@@ -413,10 +414,11 @@ export default {
             ]);
             const nextScanAt = getNextScheduledScan();
             return Response.json({
+                isAdmin,
                 lastScanAt,
-                nextId: Number(nextId),
-                consecutiveMissing: Number(consecutiveMissing),
-                lastScanResult,
+                nextId: isAdmin ? Number(nextId) : undefined,
+                consecutiveMissing: isAdmin ? Number(consecutiveMissing) : undefined,
+                lastScanResult: isAdmin ? lastScanResult : undefined,
                 nextScanAt,
                 cronSchedule: "0 1,5,9,13,17,21 * * *",
                 challenges: challenges.results ?? []

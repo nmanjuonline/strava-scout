@@ -1146,14 +1146,28 @@ async function initAuth() {
   });
 
   if (location.search.includes("state=") && (location.search.includes("code=") || location.search.includes("error="))) {
-    await auth0Client.handleRedirectCallback();
+    let errorMsg = '';
+    if (location.search.includes("error=")) {
+      const params = new URLSearchParams(location.search);
+      errorMsg = params.get('error_description') || 'Access denied.';
+    }
+    try {
+      await auth0Client.handleRedirectCallback();
+    } catch (err) {
+      console.error("Auth0 redirect error:", err);
+    }
     window.history.replaceState({}, document.title, "/");
+    
+    if (errorMsg) {
+      setTimeout(() => {
+        if (typeof showToast === 'function') showToast(errorMsg, true);
+      }, 500);
+    }
   }
 
   const isAuthenticated = await auth0Client.isAuthenticated();
   if (isAuthenticated) {
     authToken = await auth0Client.getTokenSilently();
-    document.body.classList.add('is-authenticated');
     const loginText = document.getElementById('btn-login-text');
     if (loginText) loginText.textContent = 'Logout';
   }
@@ -1171,7 +1185,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isAuthenticated) {
         auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
       } else {
-        auth0Client.loginWithRedirect();
+        auth0Client.loginWithRedirect({
+          authorizationParams: { prompt: 'login' }
+        });
       }
     });
   }
@@ -1388,8 +1404,16 @@ async function load() {
   const refreshIcon = document.getElementById('refresh-icon');
   refreshIcon.classList.add('spin');
   try {
-    const r = await fetch('/api/status');
+    const r = await fetch('/api/status', {
+      headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
+    });
     const d = await r.json();
+
+    if (d.isAdmin) {
+      document.body.classList.add('is-authenticated');
+    } else {
+      document.body.classList.remove('is-authenticated');
+    }
 
     allChallenges = d.challenges || [];
     nextScanIsoTimestamp = d.nextScanAt || computeClientNextScanIso();
