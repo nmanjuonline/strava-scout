@@ -1107,6 +1107,10 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
   </section>
 </main>
 
+<footer style="text-align: center; margin-top: 48px; padding-bottom: 24px; color: var(--fg-muted); font-size: 13px;">
+  Built with ❤️ by Manju Narasimha
+</footer>
+
 <div class="toast-container" id="toast-container"></div>
 
 <div id="settings-modal" class="modal">

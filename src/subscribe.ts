@@ -73,6 +73,7 @@ export const subscribePage = `
             background-attachment: fixed;
             color: var(--fg);
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
@@ -331,6 +332,10 @@ export const subscribePage = `
             Back to Dashboard
         </a>
     </div>
+
+    <footer style="text-align: center; margin-top: 48px; padding-bottom: 24px; color: var(--fg-muted); font-size: 13px;">
+      Built with ❤️ by Manju Narasimha
+    </footer>
 
     <script>
         let isUnsubscribe = false;
