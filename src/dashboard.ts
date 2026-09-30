@@ -1599,7 +1599,8 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
 setInterval(updateNextScanDisplay, 10000);
 
 // View Toggle
-const savedView = localStorage.getItem('strava-scout-view') || 'list';
+const defaultView = window.innerWidth <= 768 ? 'grid' : 'list';
+const savedView = localStorage.getItem('strava-scout-view') || defaultView;
 const challengeList = document.getElementById('list');
 const viewBtns = document.querySelectorAll('.view-btn');
 
