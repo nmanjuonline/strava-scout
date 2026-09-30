@@ -104,7 +104,8 @@ export default function HomeScreen() {
       if (isRefresh) setRefreshing(true);
       else setLoadingMore(true);
 
-      const res = await fetch(`https://strava-scout.nmanjuonline.workers.dev/api/challenges?page=${pageNum}`);
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://strava-scout.nmanjuonline.workers.dev';
+      const res = await fetch(`${apiUrl}/api/challenges?page=${pageNum}`);
       const data = await res.json();
       const newChallenges = data.challenges || [];
 

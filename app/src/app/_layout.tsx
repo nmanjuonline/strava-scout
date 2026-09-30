@@ -16,7 +16,9 @@ function RootLayoutInner() {
       if (expoPushToken) {
           console.log("Expo Push Token:", expoPushToken);
           // Auto-register the token with the server so push notifications reach this device
-          fetch('https://strava-scout.nmanjuonline.workers.dev/api/register-token', {
+          // Use the API URL injected at build time, fallback to prod for local dev
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://strava-scout.nmanjuonline.workers.dev';
+          fetch(`${apiUrl}/api/register-token`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ token: expoPushToken }),
