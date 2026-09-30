@@ -299,7 +299,7 @@ export const subscribePage = `
                     Telegram
                 </h3>
                 <p class="option-desc">Get instant updates directly to your Telegram app via our official bot.</p>
-                <a href="https://t.me/strava_scout" target="_blank" class="btn telegram-btn">Open Telegram Channel</a>
+                <a href="/api/track/telegram" target="_blank" class="btn telegram-btn">Open Telegram Channel</a>
             </div>
 
             <!-- Mobile App Option -->
@@ -312,7 +312,7 @@ export const subscribePage = `
                     Mobile App (Android)
                 </h3>
                 <p class="option-desc">Download our native Android app for rich push notifications.</p>
-                <a href="https://nightly.link/nmanjuonline/strava-scout/workflows/build-android.yml/main/Strava%20Scout.zip" class="btn app-btn">Download Latest APK</a>
+                <a href="/api/track/android" class="btn app-btn">Download Latest APK</a>
             </div>
 
             <!-- Email Option -->
