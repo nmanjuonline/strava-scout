@@ -12,7 +12,16 @@ async function verifyAuth(request: Request, env: Env): Promise<boolean> {
         const res = await fetch(`https://${env.AUTH0_DOMAIN}/userinfo`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
-        return res.ok;
+        if (!res.ok) return false;
+        
+        const userInfo = await res.json() as { email?: string };
+        if (!env.ADMIN_EMAILS) return true; // If no admins configured, everyone with a valid Google account is allowed
+        
+        const allowedAdmins = env.ADMIN_EMAILS.split(',').map(e => e.trim().toLowerCase());
+        if (userInfo.email && allowedAdmins.includes(userInfo.email.toLowerCase())) {
+            return true;
+        }
+        return false;
     } catch {
         return false;
     }
@@ -336,6 +345,18 @@ export default {
                 return Response.json({ success: true });
             } catch (error) {
                 return Response.json({ error: "Failed to subscribe" }, { status: 500 });
+            }
+        }
+        if (url.pathname === "/api/unsubscribe" && request.method === "POST") {
+            try {
+                const body = await request.json() as { email: string };
+                if (!body || !body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+                    return Response.json({ error: "Invalid email address" }, { status: 400 });
+                }
+                await env.DB.prepare("DELETE FROM email_subscribers WHERE email = ?").bind(body.email).run();
+                return Response.json({ success: true });
+            } catch (error) {
+                return Response.json({ error: "Failed to unsubscribe" }, { status: 500 });
             }
         }
         if (url.pathname === "/api/settings" && request.method === "GET") {
