@@ -4,6 +4,9 @@ export interface ScanReport {
     found: number;
     missing: number;
     errors: number;
+    foundIds?: number[];
+    missingIds?: number[];
+    errorIds?: number[];
 }
 
 export interface NotificationBroadcaster {

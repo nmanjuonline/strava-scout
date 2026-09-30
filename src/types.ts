@@ -8,6 +8,10 @@ export interface Env {
     TELEGRAM_CHAT_ID?: string;
     TELEGRAM_ADMIN_CHAT_ID?: string;
     GOOGLE_SCRIPT_URL?: string;
+    AUTH0_DOMAIN?: string;
+    AUTH0_CLIENT_ID?: string;
+    AUTH0_AUDIENCE?: string;
+    ADMIN_EMAILS?: string;
 }
 
 export type Challenge = {

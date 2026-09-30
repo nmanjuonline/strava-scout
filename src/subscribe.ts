@@ -73,11 +73,13 @@ export const subscribePage = `
             background-attachment: fixed;
             color: var(--fg);
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
             -webkit-font-smoothing: antialiased;
+            padding: 40px 0;
         }
         .container {
             background: var(--card-bg);
@@ -89,7 +91,10 @@ export const subscribePage = `
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
             max-width: 420px;
             width: 90%;
+            box-sizing: border-box;
             text-align: center;
+            margin: auto;
+            position: relative;
         }
         h1 {
             background: var(--text-gradient);
@@ -100,27 +105,66 @@ export const subscribePage = `
             font-weight: 800;
             letter-spacing: -0.02em;
         }
-        p {
+        p.subtitle {
             color: var(--fg-muted);
             line-height: 1.6;
             margin-bottom: 28px;
             font-size: 15px;
         }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+        .option-card {
+            background: var(--ghost-bg);
+            border: 1px solid var(--ghost-border);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: left;
+            transition: all 0.2s;
+        }
+        .option-card:hover {
+            border-color: var(--card-hover-border);
+            background: var(--ghost-hover-bg);
+        }
+        .option-card h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 18px;
+            color: var(--fg);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .option-desc {
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: var(--fg-muted);
+            line-height: 1.5;
+        }
+
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 12px;
         }
         input[type="email"] {
-            padding: 14px;
-            background: var(--ghost-bg);
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
             border: 1px solid var(--card-border);
-            border-radius: 10px;
-            font-size: 15px;
+            border-radius: 8px;
+            font-size: 14px;
             color: var(--fg);
             outline: none;
             transition: all 0.2s;
             font-family: inherit;
+        }
+        :root[data-theme="light"] input[type="email"] {
+            background: rgba(0,0,0,0.02);
         }
         input[type="email"]:focus {
             border-color: var(--accent);
@@ -130,31 +174,67 @@ export const subscribePage = `
             background: var(--accent-gradient);
             color: #ffffff;
             border: none;
-            padding: 14px;
-            border-radius: 10px;
-            font-size: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 4px 14px var(--accent-glow);
             font-family: inherit;
         }
         button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px var(--accent-glow);
+            box-shadow: 0 4px 14px var(--accent-glow);
         }
         button:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
         }
-        .message {
-            margin-top: 20px;
+
+        .btn {
+            display: inline-block;
+            width: 100%;
+            text-align: center;
+            text-decoration: none;
             padding: 12px;
             border-radius: 8px;
             font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            box-sizing: border-box;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .telegram-btn {
+            background: #229ED9;
+            color: #fff;
+            border: none;
+        }
+        .telegram-btn:hover {
+            background: #1c88ba;
+            box-shadow: 0 4px 14px rgba(34, 158, 217, 0.3);
+        }
+        .app-btn {
+            background: var(--emerald);
+            color: #fff;
+            border: none;
+        }
+        .app-btn:hover {
+            background: #0d9668;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+        }
+
+        .message {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
             font-weight: 600;
             display: none;
+            text-align: center;
         }
         .message.success {
             display: block;
@@ -168,19 +248,35 @@ export const subscribePage = `
             color: var(--error);
             border: 1px solid rgba(239, 68, 68, 0.25);
         }
-        .back-link {
+        .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            margin-top: 28px;
+            justify-content: center;
             color: var(--fg-muted);
             text-decoration: none;
-            font-size: 14px;
-            font-weight: 600;
-            transition: color 0.2s;
+            transition: color 0.2s, background 0.2s;
+            padding: 8px;
+            border-radius: 50%;
         }
-        .back-link:hover {
+        .close-btn:hover {
             color: var(--fg);
+            background: var(--ghost-hover-bg);
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px 20px;
+                width: 95%;
+            }
+            .option-card {
+                padding: 20px 16px;
+            }
+            h1 {
+                font-size: 24px;
+            }
         }
     </style>
     <script>
@@ -190,28 +286,97 @@ export const subscribePage = `
 </head>
 <body>
     <div class="container">
-        <h1>Strava Watchtower</h1>
-        <p>Subscribe to receive instant email notifications as soon as new Strava challenges are discovered.</p>
-        
-        <form id="subscribeForm">
-            <div class="form-group">
-                <input type="email" id="email" placeholder="Enter your email address" required autocomplete="email" />
-                <button type="submit" id="submitBtn">Subscribe Now</button>
-            </div>
-        </form>
-        
-        <div id="message" class="message"></div>
-        
-        <a href="/" class="back-link">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
+        <a href="/" class="close-btn" title="Back to Dashboard">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
-            Back to Dashboard
         </a>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
+            <img src="/logo-v2.png" width="40" height="40" alt="Strava Scout" style="object-fit: contain; border-radius: 8px;" />
+            <h1 style="margin-bottom: 0;">Strava Scout</h1>
+        </div>
+        <p class="subtitle">Choose how you want to be notified when new Strava challenges are discovered.</p>
+        
+        <div class="options-container">
+            <!-- Mobile App Option -->
+            <div class="option-card">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                        <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                    </svg>
+                    Mobile App (Android)
+                </h3>
+                <p class="option-desc">Download our native Android app for rich push notifications.</p>
+                <a href="/api/track/android" class="btn app-btn">Download Latest APK</a>
+            </div>
+
+            <!-- Telegram Option -->
+            <div class="option-card">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                    Telegram
+                </h3>
+                <p class="option-desc">Get instant updates directly to your Telegram app via our official bot.</p>
+                <a href="/api/track/telegram" target="_blank" class="btn telegram-btn">Open Telegram Channel</a>
+            </div>
+
+            <!-- Email Option -->
+            <div class="option-card">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                    Email
+                </h3>
+                <p class="option-desc">Receive instant emails directly to your inbox.</p>
+                <form id="subscribeForm">
+                    <div class="form-group">
+                        <input type="email" id="email" placeholder="Enter your email address" required autocomplete="email" />
+                        <button type="submit" id="submitBtn">Subscribe via Email</button>
+                    </div>
+                </form>
+                <div style="text-align: center; margin-top: 12px;">
+                    <a href="#" id="toggleActionBtn" style="color: var(--fg-muted); font-size: 13px; text-decoration: underline;">Want to unsubscribe instead?</a>
+                </div>
+                <div id="message" class="message"></div>
+            </div>
+        </div>
+        
     </div>
 
+    <footer style="text-align: center; margin-top: 48px; padding-bottom: 24px; color: var(--fg-muted); font-size: 13px;">
+      Built with ❤️ by Manju Narasimha
+    </footer>
+
     <script>
+        let isUnsubscribe = false;
+        
+        document.getElementById('toggleActionBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            isUnsubscribe = !isUnsubscribe;
+            const btn = document.getElementById('submitBtn');
+            const toggleBtn = document.getElementById('toggleActionBtn');
+            const messageEl = document.getElementById('message');
+            messageEl.className = 'message';
+            messageEl.textContent = '';
+            
+            if (isUnsubscribe) {
+                btn.textContent = 'Unsubscribe';
+                btn.style.background = 'var(--error)';
+                toggleBtn.textContent = 'Want to subscribe instead?';
+            } else {
+                btn.textContent = 'Subscribe via Email';
+                btn.style.background = 'var(--accent-gradient)';
+                toggleBtn.textContent = 'Want to unsubscribe instead?';
+            }
+        });
+
         document.getElementById('subscribeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const emailInput = document.getElementById('email');
@@ -223,12 +388,13 @@ export const subscribePage = `
 
             // Reset state
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Subscribing...';
+            submitBtn.textContent = isUnsubscribe ? 'Unsubscribing...' : 'Subscribing...';
             messageEl.className = 'message';
             messageEl.textContent = '';
 
             try {
-                const response = await fetch('/api/subscribe', {
+                const endpoint = isUnsubscribe ? '/api/unsubscribe' : '/api/subscribe';
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -240,18 +406,18 @@ export const subscribePage = `
 
                 if (response.ok) {
                     messageEl.className = 'message success';
-                    messageEl.textContent = 'Successfully subscribed!';
+                    messageEl.textContent = isUnsubscribe ? 'Successfully unsubscribed.' : 'Successfully subscribed!';
                     emailInput.value = '';
                 } else {
                     messageEl.className = 'message error';
-                    messageEl.textContent = data.error || 'Failed to subscribe. Please try again.';
+                    messageEl.textContent = data.error || (isUnsubscribe ? 'Failed to unsubscribe.' : 'Failed to subscribe.');
                 }
             } catch (error) {
                 messageEl.className = 'message error';
                 messageEl.textContent = 'A network error occurred. Please try again later.';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Subscribe Now';
+                submitBtn.textContent = isUnsubscribe ? 'Unsubscribe' : 'Subscribe via Email';
             }
         });
     </script>

@@ -278,7 +278,7 @@ Edit the `crons` field in `wrangler.toml`:
 ```toml
 # Examples:
 crons = ["0 1,5,9,13,17,21 * * *"]     # 6x Daily (every 4 hours) (default)
-crons = ["0 */6 * * *"]       # Every 6 hours
+crons = ["0 1,5,9,13,17,21 * * *"]       # Every 4 hours
 crons = ["30 9 * * MON-FRI"]  # Weekdays at 09:30 UTC
 crons = ["0 0 * * *"]         # Daily at midnight UTC
 ```

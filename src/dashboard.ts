@@ -1,4 +1,4 @@
-export const dashboard = `<!doctype html>
+export const renderDashboard = (config: { domain?: string, clientId?: string, audience?: string }) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -7,7 +7,12 @@ export const dashboard = `<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
 <style>
+  .auth-required { display: none !important; }
+  body.is-authenticated .auth-required { display: flex !important; }
+  body.is-authenticated section.stats-grid.auth-required { display: grid !important; }
+  body.is-authenticated .btn-resend.auth-required { display: inline-flex !important; }
   :root {
     --bg: #090d16;
     --bg-gradient: radial-gradient(circle at 85% 0%, rgba(252, 82, 0, 0.14) 0%, transparent 45%),
@@ -135,15 +140,15 @@ export const dashboard = `<!doctype html>
     color: inherit;
   }
   .brand-icon {
-    width: 36px;
-    height: 36px;
-    background: var(--accent-gradient);
+    width: 48px;
+    height: 48px;
+    background: transparent;
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #ffffff;
-    box-shadow: 0 4px 14px var(--accent-glow);
+    box-shadow: none;
   }
   .brand-text {
     display: flex;
@@ -179,9 +184,9 @@ export const dashboard = `<!doctype html>
     gap: 8px;
     font-size: 12px;
     font-weight: 600;
-    color: var(--emerald);
-    background: var(--emerald-bg);
-    border: 1px solid var(--emerald-border);
+    color: var(--accent);
+    background: var(--accent-faint-bg);
+    border: 1px solid var(--accent-faint-border);
     padding: 6px 12px;
     border-radius: 9999px;
   }
@@ -189,8 +194,8 @@ export const dashboard = `<!doctype html>
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--emerald);
-    box-shadow: 0 0 10px var(--emerald);
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
     animation: pulse 2s infinite ease-in-out;
   }
   @keyframes pulse {
@@ -542,9 +547,9 @@ export const dashboard = `<!doctype html>
     font-weight: 600;
     padding: 3px 8px;
     border-radius: 6px;
-    background: var(--cyan-pill-bg);
-    color: var(--cyan);
-    border: 1px solid var(--cyan-pill-border);
+    background: var(--accent-faint-bg);
+    color: var(--accent);
+    border: 1px solid var(--accent-faint-border);
   }
   .date-badge {
     display: inline-flex;
@@ -715,6 +720,115 @@ export const dashboard = `<!doctype html>
     .live-indicator span:not(.beacon-dot) { display: none; }
     .live-indicator { padding: 0; width: 36px; height: 36px; justify-content: center; }
   }
+
+  .challenge-list.grid-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+  }
+  .challenge-list.grid-view .challenge-card {
+    padding: 16px;
+    padding-top: 80px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .challenge-list.grid-view .challenge-id-badge {
+    display: none !important;
+  }
+  .challenge-list.grid-view .card-top-row {
+    display: block;
+  }
+  .challenge-list.grid-view .card-top-left {
+    padding-right: 0;
+    width: 100%;
+  }
+  .challenge-list.grid-view .challenge-image {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    right: auto;
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    margin: 0;
+  }
+  .challenge-list.grid-view .date-badge {
+    display: inline-flex !important;
+    align-items: flex-start;
+    font-size: 11px;
+    line-height: 1.3;
+    opacity: 0.8;
+    margin-bottom: 8px;
+    max-width: none;
+  }
+  .challenge-list.grid-view .challenge-title {
+    font-size: 16px;
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  .challenge-list.grid-view .challenge-desc {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--fg-muted);
+  }
+  .challenge-list.grid-view .activity-pills {
+    display: none !important;
+  }
+  .challenge-list.grid-view .challenge-actions span {
+    display: none !important;
+  }
+  .challenge-list.grid-view .challenge-actions {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    margin: 0;
+    flex-direction: row;
+    width: auto;
+    gap: 8px;
+  }
+  .challenge-list.grid-view .challenge-actions .btn-strava,
+  .challenge-list.grid-view .challenge-actions .btn-resend {
+    padding: 8px;
+    justify-content: center;
+  }
+  .challenge-list.grid-view .date-group-header {
+    grid-column: 1 / -1;
+  }
+  .view-toggle {
+    display: flex;
+    gap: 4px;
+    background: transparent;
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--ghost-border);
+    margin-left: auto;
+  }
+  .view-btn {
+    background: transparent;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: var(--fg-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .view-btn:hover { 
+    background: var(--ghost-hover-bg);
+    color: var(--fg); 
+  }
+  .view-btn.active {
+    background: rgba(252, 82, 0, 0.15);
+    color: var(--accent-light);
+    box-shadow: none;
+  }
   @media (max-width: 640px) {
     .stats-grid { grid-template-columns: 1fr; }
     .nav-container { flex-direction: column; gap: 16px; align-items: center; }
@@ -729,6 +843,58 @@ export const dashboard = `<!doctype html>
       border: 1px solid var(--card-border);
     }
     .nav-bar { padding: 20px 16px; }
+    .view-toggle { margin-left: 0; width: 100%; justify-content: center; }
+    
+    .challenge-list.grid-view {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .challenge-list.grid-view .challenge-card {
+      padding: 12px;
+      padding-top: 64px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .challenge-list.grid-view .challenge-image {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: auto;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+    }
+    .challenge-list.grid-view .challenge-actions {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+    }
+    .challenge-list.grid-view .card-top-left {
+      padding-right: 0;
+      width: 100%;
+    }
+    .challenge-list.grid-view .date-badge {
+      font-size: 10px;
+      margin-bottom: 6px;
+      max-width: none;
+    }
+    .challenge-list.grid-view .challenge-title {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .challenge-list.grid-view .challenge-desc {
+      display: -webkit-box !important;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--fg-muted);
+    }
+    .challenge-list.grid-view .activity-pills {
+      display: none !important;
+    }
   }
 </style>
 <script>
@@ -742,9 +908,7 @@ export const dashboard = `<!doctype html>
   <div class="nav-container">
     <a class="brand" href="/">
       <div class="brand-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-        </svg>
+        <img src="/logo-v2.png" width="48" height="48" alt="Strava Scout" style="object-fit: contain;" />
       </div>
       <div class="brand-text">
         <div class="brand-title">
@@ -758,6 +922,10 @@ export const dashboard = `<!doctype html>
         <span class="beacon-dot"></span>
         <span>Scheduled 6x/day</span>
       </div>
+      <button class="btn btn-ghost" id="btn-login">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+        <span id="btn-login-text">Login</span>
+      </button>
       <button class="btn btn-ghost btn-icon" id="btn-refresh" title="Refresh dashboard data">
         <svg id="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/>
@@ -771,19 +939,14 @@ export const dashboard = `<!doctype html>
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
         </svg>
       </button>
-      <button class="btn btn-ghost btn-icon" id="btn-settings" title="Notification Settings">
+      <button class="btn btn-ghost btn-icon auth-required" id="btn-settings" title="Notification Settings">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"></circle>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
       </button>
-      <a href="/subscribe" class="btn btn-ghost btn-icon" title="Subscribe to email notifications">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-          <polyline points="22,6 12,13 2,6"></polyline>
-        </svg>
-      </a>
-      <button class="btn btn-primary" id="btn-scan" title="Trigger an immediate scan">
+
+      <button class="btn btn-primary auth-required" id="btn-scan" title="Trigger an immediate scan">
         <svg id="scan-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
@@ -803,11 +966,20 @@ export const dashboard = `<!doctype html>
       STRAVA SCOUT RADAR
     </div>
     <h1>Challenges worth <span class="gradient-text">showing up for.</span></h1>
-    <p class="hero-subtitle" id="subtitle-status">Continuous forward scanner discovering new Strava challenges and dispatching instant Telegram notifications.</p>
+    <p class="hero-subtitle" id="subtitle-status">Continuous forward scanner discovering new Strava challenges and dispatching instant notifications.</p>
+    <div class="hero-cta" style="margin-top: 24px; display: flex; justify-content: center; gap: 12px;">
+      <a href="/subscribe" class="btn btn-primary" style="padding: 12px 24px; font-size: 15px; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; box-shadow: 0 4px 12px rgba(252, 76, 2, 0.25);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        Subscribe for Updates
+      </a>
+    </div>
   </section>
 
   <!-- 4-Column Stats Grid -->
-  <section class="stats-grid">
+  <section class="stats-grid auth-required">
     <!-- 1. Next Scheduled Scan (Featured Card) -->
     <div class="stat-card featured">
       <div class="stat-header">
@@ -918,6 +1090,14 @@ export const dashboard = `<!doctype html>
           <button class="filter-chip" data-filter="walk">🚶 Walk / Hike</button>
           <button class="filter-chip" data-filter="swim">🏊 Swim</button>
         </div>
+        <div class="view-toggle" id="view-toggle">
+          <button class="view-btn active" data-view="list" title="List View">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          </button>
+          <button class="view-btn" data-view="grid" title="Grid View">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -930,6 +1110,10 @@ export const dashboard = `<!doctype html>
     </div>
   </section>
 </main>
+
+<footer style="text-align: center; margin-top: 48px; padding-bottom: 24px; color: var(--fg-muted); font-size: 13px;">
+  Built with ❤️ by Manju Narasimha
+</footer>
 
 <div class="toast-container" id="toast-container"></div>
 
@@ -949,6 +1133,74 @@ export const dashboard = `<!doctype html>
 </div>
 
 <script>
+let auth0Client = null;
+let authToken = null;
+
+async function initAuth() {
+  const domain = "${config.domain || ''}";
+  const clientId = "${config.clientId || ''}";
+  const audience = "${config.audience || ''}";
+
+  if (!domain || !clientId) return;
+
+  auth0Client = await auth0.createAuth0Client({
+    domain,
+    clientId,
+    cacheLocation: 'localstorage',
+    authorizationParams: {
+      audience,
+      redirect_uri: window.location.origin
+    }
+  });
+
+  if (location.search.includes("state=") && (location.search.includes("code=") || location.search.includes("error="))) {
+    let errorMsg = '';
+    if (location.search.includes("error=")) {
+      const params = new URLSearchParams(location.search);
+      errorMsg = params.get('error_description') || 'Access denied.';
+    }
+    try {
+      await auth0Client.handleRedirectCallback();
+    } catch (err) {
+      console.error("Auth0 redirect error:", err);
+    }
+    window.history.replaceState({}, document.title, "/");
+    
+    if (errorMsg) {
+      setTimeout(() => {
+        if (typeof showToast === 'function') showToast(errorMsg, true);
+      }, 500);
+    }
+  }
+
+  const isAuthenticated = await auth0Client.isAuthenticated();
+  if (isAuthenticated) {
+    authToken = await auth0Client.getTokenSilently();
+    const loginText = document.getElementById('btn-login-text');
+    if (loginText) loginText.textContent = 'Logout';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btnLogin = document.getElementById('btn-login');
+  if (btnLogin) {
+    btnLogin.addEventListener('click', async () => {
+      if (!auth0Client) {
+        alert('Auth0 is not configured on the server.');
+        return;
+      }
+      const isAuthenticated = await auth0Client.isAuthenticated();
+      if (isAuthenticated) {
+        auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
+      } else {
+        auth0Client.loginWithRedirect({
+          authorizationParams: { prompt: 'login' }
+        });
+      }
+    });
+  }
+});
+
 let allChallenges = [];
 let nextScanIsoTimestamp = null;
 let currentFilter = 'all';
@@ -1073,14 +1325,30 @@ function renderChallenges() {
 
   if (!filtered.length) {
     if (allChallenges.length === 0) {
-      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No challenges discovered yet</div><div class="empty-desc">The scanner runs every 6 hours. You can also trigger an on-demand scan above!</div></div>';
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No challenges discovered yet</div><div class="empty-desc">The scanner runs every 4 hours. You can also trigger an on-demand scan above!</div></div>';
     } else {
       list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No matching challenges</div><div class="empty-desc">Try modifying your search keywords or filter pills.</div></div>';
     }
     return;
   }
 
-  list.innerHTML = filtered.map(c => {
+  let html = '';
+  let lastDateGroup = null;
+
+  filtered.forEach(c => {
+    let dateStr = 'Unknown Date';
+    if (c.detectedAt) {
+      const date = new Date(c.detectedAt);
+      if (!isNaN(date.getTime())) {
+        dateStr = date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      }
+    }
+
+    if (dateStr !== lastDateGroup) {
+      html += '<div class="date-group-header" style="width: 100%; margin-top: 24px; margin-bottom: 12px; font-weight: 600; color: var(--fg-muted); font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">' + escapeHtml(dateStr) + '</div>';
+      lastDateGroup = dateStr;
+    }
+
     const activities = (c.qualifyingActivities || 'Activity').split(',').map(a => a.trim()).filter(Boolean);
     
     let visibleActivities = activities;
@@ -1092,11 +1360,11 @@ function renderChallenges() {
 
     let actPills = visibleActivities.map(a => '<span class="activity-pill">' + escapeHtml(a) + '</span>').join('');
     if (overflowCount > 0) {
-      actPills += '<span class="activity-pill" style="opacity: 0.8; background: transparent; border: 1px dashed rgba(56, 189, 248, 0.4); color: var(--fg-muted);">+' + overflowCount + ' more</span>';
+      actPills += '<span class="activity-pill" style="background: transparent; border: 1px dashed var(--accent-faint-border); color: var(--accent);">+' + overflowCount + ' more</span>';
     }
     const imgHtml = c.imageUrl ? '<img src="' + escapeHtml(c.imageUrl) + '" class="challenge-image" />' : '';
     
-    return '<article class="challenge-card">' +
+    html += '<article class="challenge-card">' +
       '<div class="challenge-id-badge mono" style="position: absolute; top: -12px; left: 16px; font-size: 12px; font-weight: 700; color: var(--accent-light); background: var(--card-bg); border: 1px solid rgba(252, 82, 0, 0.4); padding: 4px 10px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">#' + c.id + '</div>' +
       '<div class="card-top-row">' +
         '<div class="card-top-left">' +
@@ -1118,14 +1386,16 @@ function renderChallenges() {
             '<span>Open on Strava</span>' +
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
           '</a>' +
-          '<button class="btn-resend" data-id="' + c.id + '" data-url="/api/challenges/' + c.id + '/notify">' +
+          '<button class="btn-resend auth-required" data-id="' + c.id + '" data-url="/api/challenges/' + c.id + '/notify">' +
             '<span>Resend</span>' +
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6H7a3 3 0 0 0-3 3v2" /><polyline points="14 3 17 6 14 9" /><path d="M7 18h10a3 3 0 0 0 3-3v-2" /><polyline points="10 21 7 18 10 15" /></svg>'+ 
           '</button>' +
         '</div>' +
       '</div>' +
     '</article>';
-  }).join('');
+  });
+
+  list.innerHTML = html;
 }
 
 function escapeHtml(str) {
@@ -1142,8 +1412,16 @@ async function load() {
   const refreshIcon = document.getElementById('refresh-icon');
   refreshIcon.classList.add('spin');
   try {
-    const r = await fetch('/api/status');
+    const r = await fetch('/api/status', {
+      headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
+    });
     const d = await r.json();
+
+    if (d.isAdmin) {
+      document.body.classList.add('is-authenticated');
+    } else {
+      document.body.classList.remove('is-authenticated');
+    }
 
     allChallenges = d.challenges || [];
     nextScanIsoTimestamp = d.nextScanAt || computeClientNextScanIso();
@@ -1182,7 +1460,10 @@ async function triggerScan() {
   scanIcon.classList.add('spin');
 
   try {
-    const res = await fetch('/api/scan', { method: 'POST' });
+    const res = await fetch('/api/scan', { 
+      method: 'POST',
+      headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
+    });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     showToast('Scan complete: ' + data.found + ' found, ' + data.missing + ' missing, ' + data.errors + ' errors');
@@ -1235,7 +1516,9 @@ document.getElementById('btn-settings').addEventListener('click', async () => {
   const bodyEl = document.getElementById('settings-modal-body');
   bodyEl.innerHTML = '<div style="text-align:center; padding:20px; color:var(--fg-muted);">Loading...</div>';
   try {
-    const res = await fetch('/api/settings');
+    const res = await fetch('/api/settings', {
+      headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
+    });
     const data = await res.json();
     bodyEl.innerHTML = data.map(setting => 
       '<label class="toggle-label">' +
@@ -1262,7 +1545,10 @@ document.getElementById('btn-save-settings').addEventListener('click', async () 
     });
     const res = await fetch('/api/settings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': 'Bearer ' + authToken } : {})
+      },
       body: JSON.stringify(payload)
     });
     if (res.ok) {
@@ -1284,7 +1570,10 @@ document.addEventListener('click', async (e) => {
   if (!btn) return;
   btn.disabled = true;
   try {
-    const res = await fetch(btn.dataset.url, { method: 'POST' });
+    const res = await fetch(btn.dataset.url, { 
+      method: 'POST',
+      headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
+    });
     const data = await res.json();
     if (res.ok && data.success) showToast('Message resend successful.', false);
     else showToast('Resend failed: ' + (data.detail || data.error), true);
@@ -1309,21 +1598,42 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
   });
 });
 
-// Localize Cadence text
-const formatLocal = (utcHour) => {
-  const d = new Date();
-  d.setUTCHours(utcHour, 0, 0, 0);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
-const cadenceEl = document.getElementById('cadence-text');
-if (cadenceEl) {
-  cadenceEl.textContent = 'Cadence: ' + formatLocal(1) + ', ' + formatLocal(7) + ', ' + formatLocal(13) + ' & ' + formatLocal(19) + ' Local Time (4x daily)';
-}
 
 // Update countdown every 10 seconds
 setInterval(updateNextScanDisplay, 10000);
 
-load();
+// View Toggle
+const defaultView = window.innerWidth <= 768 ? 'grid' : 'list';
+const savedView = localStorage.getItem('strava-scout-view') || defaultView;
+const challengeList = document.getElementById('list');
+const viewBtns = document.querySelectorAll('.view-btn');
+
+function applyView(viewMode) {
+  if (viewMode === 'grid') {
+    challengeList.classList.add('grid-view');
+  } else {
+    challengeList.classList.remove('grid-view');
+  }
+  viewBtns.forEach(b => {
+    if (b.getAttribute('data-view') === viewMode) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+}
+
+applyView(savedView);
+
+viewBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const view = btn.getAttribute('data-view');
+    localStorage.setItem('strava-scout-view', view);
+    applyView(view);
+  });
+});
+
+initAuth().then(load);
 </script>
 </body>
 </html>`;

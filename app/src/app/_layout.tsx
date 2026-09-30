@@ -15,6 +15,15 @@ function RootLayoutInner() {
   useEffect(() => {
       if (expoPushToken) {
           console.log("Expo Push Token:", expoPushToken);
+          // Auto-register the token with the server so push notifications reach this device
+          fetch('https://strava-scout.nmanjuonline.workers.dev/api/register-token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: expoPushToken }),
+          }).then(res => {
+              if (res.ok) console.log("Push token registered with server");
+              else console.error("Failed to register push token:", res.status);
+          }).catch(err => console.error("Token registration error:", err));
       }
   }, [expoPushToken]);
 
