@@ -44,6 +44,7 @@ enabled = false
 [previews.vars]
 FETCH_BATCH_SIZE = "20"
 START_ID = "6420"
+APP_ENV = "stage"
 
 [[previews.d1_databases]]
 binding = "DB"
