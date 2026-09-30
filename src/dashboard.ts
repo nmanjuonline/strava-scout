@@ -945,12 +945,7 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
       </button>
-      <a href="/subscribe" class="btn btn-ghost btn-icon" title="Subscribe to email notifications">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-          <polyline points="22,6 12,13 2,6"></polyline>
-        </svg>
-      </a>
+
       <button class="btn btn-primary auth-required" id="btn-scan" title="Trigger an immediate scan">
         <svg id="scan-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -971,7 +966,16 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
       STRAVA SCOUT RADAR
     </div>
     <h1>Challenges worth <span class="gradient-text">showing up for.</span></h1>
-    <p class="hero-subtitle" id="subtitle-status">Continuous forward scanner discovering new Strava challenges and dispatching instant Telegram notifications.</p>
+    <p class="hero-subtitle" id="subtitle-status">Continuous forward scanner discovering new Strava challenges and dispatching instant notifications.</p>
+    <div class="hero-cta" style="margin-top: 24px; display: flex; justify-content: center; gap: 12px;">
+      <a href="/subscribe" class="btn btn-primary" style="padding: 12px 24px; font-size: 15px; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; box-shadow: 0 4px 12px rgba(252, 76, 2, 0.25);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        Subscribe for Updates
+      </a>
+    </div>
   </section>
 
   <!-- 4-Column Stats Grid -->

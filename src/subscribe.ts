@@ -94,6 +94,7 @@ export const subscribePage = `
             box-sizing: border-box;
             text-align: center;
             margin: auto;
+            position: relative;
         }
         h1 {
             background: var(--text-gradient);
@@ -247,19 +248,22 @@ export const subscribePage = `
             color: var(--error);
             border: 1px solid rgba(239, 68, 68, 0.25);
         }
-        .back-link {
+        .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
             color: var(--fg-muted);
             text-decoration: none;
-            font-size: 14px;
-            font-weight: 600;
-            transition: color 0.2s;
+            transition: color 0.2s, background 0.2s;
+            padding: 8px;
+            border-radius: 50%;
         }
-        .back-link:hover {
+        .close-btn:hover {
             color: var(--fg);
+            background: var(--ghost-hover-bg);
         }
 
         @media (max-width: 480px) {
@@ -282,6 +286,12 @@ export const subscribePage = `
 </head>
 <body>
     <div class="container">
+        <a href="/" class="close-btn" title="Back to Dashboard">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </a>
         <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
             <img src="/logo-v2.png" width="40" height="40" alt="Strava Scout" style="object-fit: contain; border-radius: 8px;" />
             <h1 style="margin-bottom: 0;">Strava Scout</h1>
@@ -289,19 +299,6 @@ export const subscribePage = `
         <p class="subtitle">Choose how you want to be notified when new Strava challenges are discovered.</p>
         
         <div class="options-container">
-            <!-- Telegram Option -->
-            <div class="option-card">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
-                    Telegram
-                </h3>
-                <p class="option-desc">Get instant updates directly to your Telegram app via our official bot.</p>
-                <a href="/api/track/telegram" target="_blank" class="btn telegram-btn">Open Telegram Channel</a>
-            </div>
-
             <!-- Mobile App Option -->
             <div class="option-card">
                 <h3>
@@ -313,6 +310,19 @@ export const subscribePage = `
                 </h3>
                 <p class="option-desc">Download our native Android app for rich push notifications.</p>
                 <a href="/api/track/android" class="btn app-btn">Download Latest APK</a>
+            </div>
+
+            <!-- Telegram Option -->
+            <div class="option-card">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                    Telegram
+                </h3>
+                <p class="option-desc">Get instant updates directly to your Telegram app via our official bot.</p>
+                <a href="/api/track/telegram" target="_blank" class="btn telegram-btn">Open Telegram Channel</a>
             </div>
 
             <!-- Email Option -->
@@ -338,13 +348,6 @@ export const subscribePage = `
             </div>
         </div>
         
-        <a href="/" class="back-link">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-            Back to Dashboard
-        </a>
     </div>
 
     <footer style="text-align: center; margin-top: 48px; padding-bottom: 24px; color: var(--fg-muted); font-size: 13px;">
