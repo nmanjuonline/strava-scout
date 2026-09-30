@@ -2,6 +2,16 @@ name = "strava-scout"
 main = "src/index.ts"
 compatibility_date = "2026-09-16"
 
+# To restrict dashboard access securely, run:
+#   npx wrangler secret put ADMIN_EMAILS
+# EXPO_PUSH_TOKEN removed — use dynamic registration via /api/register-token from the app instead.
+# To set a token manually for testing, run:
+#   wrangler secret put EXPO_PUSH_TOKEN
+
+[vars]
+FETCH_BATCH_SIZE = "20"
+START_ID = "6420"
+
 [triggers]
 crons = ["0 1,5,9,13,17,21 * * *"]
 
@@ -10,16 +20,10 @@ binding = "DB"
 database_name = "strava-scout"
 database_id = "749b09a8-5efc-40e3-bad8-4d25c78e02bf"
 
-[vars]
-START_ID = "6430"
-FETCH_BATCH_SIZE = "20"
-# To restrict dashboard access securely, run:
-#   npx wrangler secret put ADMIN_EMAILS
-# EXPO_PUSH_TOKEN removed — use dynamic registration via /api/register-token from the app instead.
-# To set a token manually for testing, run:
-#   wrangler secret put EXPO_PUSH_TOKEN
+[observability]
+enabled = false
+head_sampling_rate = 1
 
-# ...
 [observability.logs]
 enabled = true
 head_sampling_rate = 1
@@ -30,4 +34,34 @@ persist = true
 enabled = true
 head_sampling_rate = 1
 persist = true
-# ...
+
+[observability.issue_detection]
+enabled = false
+
+# --- Previews Configuration ---
+
+[previews.vars]
+FETCH_BATCH_SIZE = "20"
+START_ID = "6420"
+
+[[previews.d1_databases]]
+binding = "DB"
+database_id = "6c3fa792-ab62-4250-95c7-4d9f887842ac"
+
+[previews.observability]
+enabled = true
+head_sampling_rate = 1
+
+[previews.observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
+[previews.observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true
+
+[previews.observability.issue_detection]
+enabled = false
