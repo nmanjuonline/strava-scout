@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       APP_ENV: ${{ github.ref_name == 'stage' && 'stage' || 'production' }}
-      EXPO_PUBLIC_API_URL: ${{ github.ref_name == 'stage' && 'https://stage-strava-scout.nmanjuonline.workers.dev' || 'https://strava-scout.nmanjuonline.workers.dev' }}
+      EXPO_PUBLIC_API_URL: ${{ github.ref_name == 'stage' && 'https://strava-scout-stage.nmanjuonline.workers.dev' || 'https://strava-scout.nmanjuonline.workers.dev' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
