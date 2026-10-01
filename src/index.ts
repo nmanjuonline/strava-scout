@@ -449,10 +449,17 @@ export default {
                 if (!body?.token || !body.token.startsWith("ExponentPushToken[")) {
                     return Response.json({ error: "Invalid Expo push token" }, { status: 400 });
                 }
+                // Save to persistent push_subscribers table
+                await env.DB.prepare(
+                    "INSERT INTO push_subscribers (token, last_seen_at) VALUES (?, datetime('now')) ON CONFLICT(token) DO UPDATE SET last_seen_at = datetime('now')"
+                ).bind(body.token).run();
+
+                // Also maintain scan_state for backward compatibility
                 await setState(env.DB, "expo_push_token", body.token);
                 console.log("Registered Expo push token:", body.token);
                 return Response.json({ success: true });
             } catch (error) {
+                console.error("Failed to register token:", error);
                 return Response.json({ error: "Failed to register token" }, { status: 500 });
             }
         }
