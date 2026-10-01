@@ -370,8 +370,16 @@ export default {
                     redirect: `https://nightly.link/nmanjuonline/strava-scout/workflows/build-android.yml/${branch}/Strava%20Scout.zip`
                 },
                 "telegram": {
-                    message: "Telegram Channel Click",
+                    message: `Telegram Channel Click (${branch})`,
                     redirect: "https://t.me/strava_scout"
+                },
+                "mail": {
+                    message: `Email Channel Click (${branch})`,
+                    redirect: "/subscribe"
+                },
+                "email": {
+                    message: `Email Channel Click (${branch})`,
+                    redirect: "/subscribe"
                 }
             };
 
@@ -389,8 +397,10 @@ export default {
                 if (!body || !body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
                     return Response.json({ error: "Invalid email address" }, { status: 400 });
                 }
+                const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+                const branch = isStage ? "stage" : "main";
                 await env.DB.prepare("INSERT INTO email_subscribers (email) VALUES (?) ON CONFLICT(email) DO NOTHING").bind(body.email).run();
-                await sendTelegramAdminAlert(env, request, "New Email Subscription", { Email: body.email });
+                await sendTelegramAdminAlert(env, request, `New Email Subscription (${branch})`, { Email: body.email });
                 return Response.json({ success: true });
             } catch (error) {
                 return Response.json({ error: "Failed to subscribe" }, { status: 500 });
@@ -402,7 +412,10 @@ export default {
                 if (!body || !body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
                     return Response.json({ error: "Invalid email address" }, { status: 400 });
                 }
+                const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+                const branch = isStage ? "stage" : "main";
                 await env.DB.prepare("DELETE FROM email_subscribers WHERE email = ?").bind(body.email).run();
+                await sendTelegramAdminAlert(env, request, `Email Unsubscribed (${branch})`, { Email: body.email });
                 return Response.json({ success: true });
             } catch (error) {
                 return Response.json({ error: "Failed to unsubscribe" }, { status: 500 });
