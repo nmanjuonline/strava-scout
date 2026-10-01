@@ -43,7 +43,7 @@ persist = true
 [previews.vars]
 FETCH_BATCH_SIZE = "20"
 START_ID = "6420"
-APP_ENV = "stage"
+APP_ENV = "stage1"
 
 [[previews.d1_databases]]
 binding = "DB"
@@ -64,32 +64,4 @@ enabled = true
 head_sampling_rate = 1
 persist = true
 
-# --- Staging Environment Configuration ---
 
-[env.stage.triggers]
-crons = ["0 1,5,9,13,17,21 * * *"]
-
-[env.stage.vars]
-FETCH_BATCH_SIZE = "20"
-START_ID = "6420"
-APP_ENV = "stage"
-
-[[env.stage.d1_databases]]
-binding = "DB"
-database_name = "strava-scout-stage"
-database_id = "6c3fa792-ab62-4250-95c7-4d9f887842ac"
-
-[env.stage.observability]
-enabled = true
-head_sampling_rate = 1
-
-[env.stage.observability.logs]
-enabled = true
-head_sampling_rate = 1
-invocation_logs = true
-persist = true
-
-[env.stage.observability.traces]
-enabled = true
-head_sampling_rate = 1
-persist = true
