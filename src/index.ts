@@ -122,6 +122,71 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
     await db.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(key, value).run();
 }
 
+async function syncAppVersionInfo(env: Env, branch: string, force = false): Promise<{ version: string; versionCode: number }> {
+    const cachedVersion = await state(env.DB, "latest_app_version", "1.0.0");
+    const cachedVersionCode = await state(env.DB, "latest_version_code", "1");
+    const lastChecked = await state(env.DB, "latest_version_checked_at", "0");
+
+    const now = Date.now();
+    const cacheAge = now - Number(lastChecked);
+
+    // If cached within 5 minutes and already has a valid build number, return cached immediately
+    if (!force && cacheAge < 5 * 60 * 1000 && Number(cachedVersionCode) > 1) {
+        return {
+            version: cachedVersion,
+            versionCode: parseInt(cachedVersionCode, 10) || 1
+        };
+    }
+
+    // Query GitHub Actions public API for the latest successful run on this branch
+    try {
+        const ghBranch = branch === "stage" ? "stage" : "main";
+        const [runsRes, pkgRes] = await Promise.all([
+            fetch(`https://api.github.com/repos/nmanjuonline/strava-scout/actions/runs?branch=${ghBranch}&status=success&per_page=1`, {
+                headers: { "User-Agent": "StravaScout-Worker" }
+            }),
+            fetch(`https://raw.githubusercontent.com/nmanjuonline/strava-scout/${ghBranch}/app/package.json`, {
+                headers: { "User-Agent": "StravaScout-Worker" }
+            })
+        ]);
+
+        let newVersion = cachedVersion;
+        let newVersionCode = cachedVersionCode;
+
+        if (runsRes.ok) {
+            const runsData = await runsRes.json() as { workflow_runs?: Array<{ run_number?: number }> };
+            const latestRun = runsData.workflow_runs?.[0]?.run_number;
+            if (latestRun && latestRun > 0) {
+                newVersionCode = String(latestRun);
+            }
+        }
+
+        if (pkgRes.ok) {
+            const pkgData = await pkgRes.json() as { version?: string };
+            if (pkgData.version) {
+                newVersion = pkgData.version;
+            }
+        }
+
+        await Promise.all([
+            setState(env.DB, "latest_app_version", newVersion),
+            setState(env.DB, "latest_version_code", newVersionCode),
+            setState(env.DB, "latest_version_checked_at", String(now))
+        ]);
+
+        return {
+            version: newVersion,
+            versionCode: parseInt(newVersionCode, 10) || 1
+        };
+    } catch (err) {
+        console.error("Failed to query GitHub API for version:", err);
+        return {
+            version: cachedVersion,
+            versionCode: parseInt(cachedVersionCode, 10) || 1
+        };
+    }
+}
+
 async function sendTelegramAdminAlert(env: Env, request: Request, title: string, extraInfo: Record<string, string> = {}): Promise<void> {
     if (!env.TELEGRAM_ADMIN_CHAT_ID || !env.TELEGRAM_BOT_TOKEN) return;
     try {
@@ -342,15 +407,15 @@ export default {
         const url = new URL(request.url);
         if (url.pathname === "/") {
             const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
-            const currentVersion = await state(env.DB, "latest_app_version", "1.0.0");
-            const currentVersionCode = await state(env.DB, "latest_version_code", "1");
+            const branch = isStage ? "stage" : "main";
+            const { version, versionCode } = await syncAppVersionInfo(env, branch);
             return new Response(renderDashboard({ 
                 domain: env.AUTH0_DOMAIN, 
                 clientId: env.AUTH0_CLIENT_ID, 
                 audience: env.AUTH0_AUDIENCE,
                 appEnv: isStage ? "Stage" : "Production",
-                version: currentVersion,
-                versionCode: parseInt(currentVersionCode, 10) || 1
+                version,
+                versionCode
             }), { headers: { "content-type": "text/html;charset=UTF-8" } });
         }
         if (url.pathname === "/subscribe") return new Response(subscribePage, { headers: { "content-type": "text/html;charset=UTF-8" } });
@@ -436,15 +501,15 @@ export default {
         if (url.pathname === "/api/version" && request.method === "GET") {
             const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
             const branch = isStage ? "stage" : "main";
+            const force = url.searchParams.get("force") === "true";
             
-            const latestVersion = await state(env.DB, "latest_app_version", "1.0.0");
-            const latestVersionCode = await state(env.DB, "latest_version_code", "1");
+            const { version, versionCode } = await syncAppVersionInfo(env, branch, force);
             const releaseNotes = await state(env.DB, "latest_release_notes", "A new version of Strava Scout is available with features and performance improvements.");
 
             return Response.json({
-                latestVersion,
-                version: latestVersion,
-                versionCode: parseInt(latestVersionCode, 10) || 1,
+                latestVersion: version,
+                version,
+                versionCode,
                 environment: isStage ? "Stage" : "Production",
                 downloadUrl: `https://${url.host}/api/track/android`,
                 releaseNotes
@@ -531,14 +596,14 @@ export default {
             try {
                 const isAdmin = await verifyAuth(request, env);
                 const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
-                const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges, latestVersion, latestVersionCode] = await Promise.all([
+                const branch = isStage ? "stage" : "main";
+                const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges, versionInfo] = await Promise.all([
                     state(env.DB, "last_scan_at", ""),
                     state(env.DB, "next_id", env.START_ID),
                     state(env.DB, "consecutive_missing", "0"),
                     state(env.DB, "last_scan_result", "Never scanned"),
                     env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, image_url AS imageUrl, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all(),
-                    state(env.DB, "latest_app_version", "1.0.0"),
-                    state(env.DB, "latest_version_code", "1")
+                    syncAppVersionInfo(env, branch)
                 ]);
                 const nextScanAt = getNextScheduledScan();
                 return Response.json({
@@ -550,8 +615,8 @@ export default {
                     nextScanAt,
                     cronSchedule: "0 1,5,9,13,17,21 * * *",
                     challenges: challenges.results ?? [],
-                    version: latestVersion,
-                    versionCode: parseInt(latestVersionCode, 10) || 1,
+                    version: versionInfo.version,
+                    versionCode: versionInfo.versionCode,
                     environment: isStage ? "Stage" : "Production"
                 });
             } catch (error: any) {
