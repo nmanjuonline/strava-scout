@@ -124,14 +124,16 @@ export default function SettingsScreen() {
             <ThemedText style={styles.valueText}>v{version} (Build {buildNumber})</ThemedText>
           </View>
 
-          <View style={styles.row}>
-            <ThemedText>Environment</ThemedText>
-            <View style={[styles.badge, isStage ? styles.badgeStage : styles.badgeProd]}>
-              <ThemedText style={[styles.badgeText, isStage ? styles.badgeTextStage : styles.badgeTextProd]}>
-                {isStage ? 'Stage' : 'Production'}
-              </ThemedText>
+          {isStage && (
+            <View style={styles.row}>
+              <ThemedText>Environment</ThemedText>
+              <View style={[styles.badge, styles.badgeStage]}>
+                <ThemedText style={[styles.badgeText, styles.badgeTextStage]}>
+                  Stage
+                </ThemedText>
+              </View>
             </View>
-          </View>
+          )}
 
           <TouchableOpacity 
             style={styles.updateButton} 
@@ -207,20 +209,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.4)',
   },
-  badgeProd: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.4)',
-  },
   badgeText: {
     fontSize: 12,
     fontWeight: 'bold',
   },
   badgeTextStage: {
     color: '#f59e0b',
-  },
-  badgeTextProd: {
-    color: '#10b981',
   },
   updateButton: {
     backgroundColor: '#fc5200',

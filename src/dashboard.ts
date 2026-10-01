@@ -178,11 +178,6 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
     color: #f59e0b !important;
     border: 1px solid rgba(245, 158, 11, 0.35) !important;
   }
-  .badge-env-prod {
-    background: rgba(16, 185, 129, 0.15) !important;
-    color: #10b981 !important;
-    border: 1px solid rgba(16, 185, 129, 0.35) !important;
-  }
   .badge-version {
     background: var(--ghost-bg) !important;
     color: var(--fg-muted) !important;
@@ -933,7 +928,7 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
       <div class="brand-text">
         <div class="brand-title">
           Strava Watchtower
-          <span id="brand-env-badge" class="badge-tag ${(config.appEnv || 'Production').toLowerCase().includes('stage') ? 'badge-env-stage' : 'badge-env-prod'}">${config.appEnv || 'Production'}</span>
+          <span id="brand-env-badge" class="badge-tag badge-env-stage" style="${(config.appEnv || '').toLowerCase().includes('stage') ? '' : 'display:none;'}">Stage</span>
           <span id="brand-version-badge" class="badge-tag badge-version">v${config.version || '1.0.0'}${config.versionCode ? ` (b${config.versionCode})` : ''}</span>
         </div>
       </div>
@@ -1134,7 +1129,7 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
 
 <footer style="text-align: center; margin-top: 48px; padding-bottom: 24px; color: var(--fg-muted); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
   <div>
-    Strava Scout Watchtower <span id="footer-version" class="mono" style="font-weight: 600; color: var(--fg);">v${config.version || '1.0.0'}${config.versionCode ? ` (Build ${config.versionCode})` : ''}</span> · <span id="footer-env" style="font-weight: 600; color: ${(config.appEnv || 'Production').toLowerCase().includes('stage') ? '#f59e0b' : '#10b981'};">${config.appEnv || 'Production'}</span>
+    Strava Scout Watchtower <span id="footer-version" class="mono" style="font-weight: 600; color: var(--fg);">v${config.version || '1.0.0'}${config.versionCode ? ` (Build ${config.versionCode})` : ''}</span><span id="footer-env" style="font-weight: 600; color: #f59e0b;">${(config.appEnv || '').toLowerCase().includes('stage') ? ' · Stage' : ''}</span>
   </div>
   <div>Built with ❤️ by Manju Narasimha</div>
 </footer>
@@ -1464,13 +1459,16 @@ async function load() {
       const isStage = d.environment.toLowerCase().includes('stage');
       const brandEnv = document.getElementById('brand-env-badge');
       if (brandEnv) {
-        brandEnv.textContent = d.environment;
-        brandEnv.className = 'badge-tag ' + (isStage ? 'badge-env-stage' : 'badge-env-prod');
+        if (isStage) {
+          brandEnv.textContent = 'Stage';
+          brandEnv.style.display = 'inline-block';
+        } else {
+          brandEnv.style.display = 'none';
+        }
       }
       const footerEnv = document.getElementById('footer-env');
       if (footerEnv) {
-        footerEnv.textContent = d.environment;
-        footerEnv.style.color = isStage ? '#f59e0b' : '#10b981';
+        footerEnv.textContent = isStage ? ' · Stage' : '';
       }
     }
 
