@@ -361,7 +361,7 @@ export default {
         if (url.pathname.startsWith("/api/track/")) {
             const source = url.pathname.replace("/api/track/", "");
             
-            const isStage = env.APP_ENV === "stage";
+            const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
             const branch = isStage ? "stage" : "main";
             
             const trackingConfig: Record<string, { message: string, redirect: string }> = {
