@@ -340,7 +340,19 @@ export default {
     async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> { ctx.waitUntil(scan(env)); },
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url);
-        if (url.pathname === "/") return new Response(renderDashboard({ domain: env.AUTH0_DOMAIN, clientId: env.AUTH0_CLIENT_ID, audience: env.AUTH0_AUDIENCE }), { headers: { "content-type": "text/html;charset=UTF-8" } });
+        if (url.pathname === "/") {
+            const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+            const currentVersion = await state(env.DB, "latest_app_version", "1.0.0");
+            const currentVersionCode = await state(env.DB, "latest_version_code", "1");
+            return new Response(renderDashboard({ 
+                domain: env.AUTH0_DOMAIN, 
+                clientId: env.AUTH0_CLIENT_ID, 
+                audience: env.AUTH0_AUDIENCE,
+                appEnv: isStage ? "Stage" : "Production",
+                version: currentVersion,
+                versionCode: parseInt(currentVersionCode, 10) || 1
+            }), { headers: { "content-type": "text/html;charset=UTF-8" } });
+        }
         if (url.pathname === "/subscribe") return new Response(subscribePage, { headers: { "content-type": "text/html;charset=UTF-8" } });
 
         if (url.pathname === "/logo-v2.png" && request.method === "GET") {
@@ -518,12 +530,15 @@ export default {
         if (url.pathname === "/api/status") {
             try {
                 const isAdmin = await verifyAuth(request, env);
-                const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges] = await Promise.all([
+                const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+                const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges, latestVersion, latestVersionCode] = await Promise.all([
                     state(env.DB, "last_scan_at", ""),
                     state(env.DB, "next_id", env.START_ID),
                     state(env.DB, "consecutive_missing", "0"),
                     state(env.DB, "last_scan_result", "Never scanned"),
-                    env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, image_url AS imageUrl, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all()
+                    env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, image_url AS imageUrl, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all(),
+                    state(env.DB, "latest_app_version", "1.0.0"),
+                    state(env.DB, "latest_version_code", "1")
                 ]);
                 const nextScanAt = getNextScheduledScan();
                 return Response.json({
@@ -534,7 +549,10 @@ export default {
                     lastScanResult: isAdmin ? lastScanResult : undefined,
                     nextScanAt,
                     cronSchedule: "0 1,5,9,13,17,21 * * *",
-                    challenges: challenges.results ?? []
+                    challenges: challenges.results ?? [],
+                    version: latestVersion,
+                    versionCode: parseInt(latestVersionCode, 10) || 1,
+                    environment: isStage ? "Stage" : "Production"
                 });
             } catch (error: any) {
                 return Response.json({ error: "Internal Server Error in /api/status", detail: String(error.stack || error), dbPresent: !!env.DB }, { status: 500 });
