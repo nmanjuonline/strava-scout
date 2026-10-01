@@ -5,6 +5,7 @@ import { AppState, AppStateStatus } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useAutoUpdateCheck } from '@/hooks/useAutoUpdateCheck';
 import { PreferencesProviderWrapper, usePreferences } from '@/hooks/usePreferences';
 
 SplashScreen.preventAutoHideAsync();
@@ -12,6 +13,7 @@ SplashScreen.preventAutoHideAsync();
 function RootLayoutInner() {
   const { activeTheme } = usePreferences();
   const { expoPushToken, notification } = usePushNotifications();
+  useAutoUpdateCheck();
   const appState = useRef(AppState.currentState);
 
   const registerToken = useCallback((token: string) => {

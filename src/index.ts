@@ -421,6 +421,40 @@ export default {
                 return Response.json({ error: "Failed to unsubscribe" }, { status: 500 });
             }
         }
+        if (url.pathname === "/api/version" && request.method === "GET") {
+            const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+            const branch = isStage ? "stage" : "main";
+            
+            const latestVersion = await state(env.DB, "latest_app_version", "1.0.0");
+            const latestVersionCode = await state(env.DB, "latest_version_code", "1");
+            const releaseNotes = await state(env.DB, "latest_release_notes", "A new version of Strava Scout is available with features and performance improvements.");
+
+            return Response.json({
+                latestVersion,
+                version: latestVersion,
+                versionCode: parseInt(latestVersionCode, 10) || 1,
+                environment: isStage ? "Stage" : "Production",
+                downloadUrl: `https://${url.host}/api/track/android`,
+                releaseNotes
+            }, {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                }
+            });
+        }
+        if (url.pathname === "/api/version" && request.method === "POST") {
+            if (!(await verifyAuth(request, env))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+            try {
+                const body = await request.json() as { version?: string; versionCode?: number; releaseNotes?: string };
+                if (body.version) await setState(env.DB, "latest_app_version", body.version);
+                if (body.versionCode) await setState(env.DB, "latest_version_code", String(body.versionCode));
+                if (body.releaseNotes) await setState(env.DB, "latest_release_notes", body.releaseNotes);
+                return Response.json({ success: true });
+            } catch (error) {
+                return Response.json({ error: "Failed to update version info" }, { status: 500 });
+            }
+        }
         if (url.pathname === "/api/settings" && request.method === "GET") {
             if (!(await verifyAuth(request, env))) return Response.json({ error: "Unauthorized" }, { status: 401 });
             const settings = await Promise.all(notifications.broadcasters.map(async b => {

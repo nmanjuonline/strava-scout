@@ -2,12 +2,14 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const isStage = process.env.APP_ENV === 'stage';
+  const buildNumber = parseInt(process.env.BUILD_NUMBER || process.env.EXPO_PUBLIC_BUILD_NUMBER || '1', 10);
+  const version = "1.0.0";
 
   return {
     ...config,
     name: isStage ? "Strava Scout (Stage)" : "Strava Scout",
     slug: "strava-scout",
-    version: "1.0.0",
+    version: version,
     orientation: "portrait",
     icon: "./assets/images/logo.png",
     scheme: "app",
@@ -26,6 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       package: isStage 
         ? "com.nmanjuonline.stravascout.stage" 
         : "com.nmanjuonline.stravascout",
+      versionCode: buildNumber,
       googleServicesFile: "./google-services.json",
       permissions: ["VIBRATE", "RECEIVE_BOOT_COMPLETED"]
     },
@@ -53,7 +56,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       router: {},
       eas: {
         projectId: "f0f99432-1627-467b-acee-5df4302499ff"
-      }
+      },
+      buildNumber: buildNumber,
+      version: version,
+      appEnv: isStage ? "stage" : "production"
     },
     owner: "nmanjuonline"
   };
