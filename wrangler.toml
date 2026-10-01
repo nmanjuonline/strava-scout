@@ -1,6 +1,7 @@
 name = "strava-scout"
 main = "src/index.ts"
 compatibility_date = "2026-09-16"
+keep_vars = true
 
 # To restrict dashboard access securely, run:
 #   npx wrangler secret put ADMIN_EMAILS
@@ -36,8 +37,6 @@ enabled = true
 head_sampling_rate = 1
 persist = true
 
-[observability.issue_detection]
-enabled = false
 
 # --- Previews Configuration ---
 
@@ -65,9 +64,8 @@ enabled = true
 head_sampling_rate = 1
 persist = true
 
-[previews.observability.issue_detection]
-enabled = false
 # --- Staging Environment Configuration ---
+
 [env.stage.vars]
 FETCH_BATCH_SIZE = "20"
 START_ID = "6420"
