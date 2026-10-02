@@ -141,7 +141,12 @@ async function syncAppVersionInfo(env: Env, branch: string, force = false): Prom
     // Query GitHub Actions public API for the latest successful run on this branch
     try {
         const ghBranch = branch === "stage" ? "stage" : "main";
-        const [runsRes, pkgRes] = await Promise.all([
+        // Query both the repository-wide latest run and the branch run
+        // This ensures the build number is carried over from stage to prod (never decreases)
+        const [repoRunsRes, branchRunsRes, pkgRes] = await Promise.all([
+            fetch(`https://api.github.com/repos/nmanjuonline/strava-scout/actions/runs?status=success&per_page=1`, {
+                headers: { "User-Agent": "StravaScout-Worker" }
+            }),
             fetch(`https://api.github.com/repos/nmanjuonline/strava-scout/actions/runs?branch=${ghBranch}&status=success&per_page=1`, {
                 headers: { "User-Agent": "StravaScout-Worker" }
             }),
@@ -151,15 +156,25 @@ async function syncAppVersionInfo(env: Env, branch: string, force = false): Prom
         ]);
 
         let newVersion = cachedVersion;
-        let newVersionCode = cachedVersionCode;
+        let highestRun = parseInt(cachedVersionCode, 10) || 1;
 
-        if (runsRes.ok) {
-            const runsData = await runsRes.json() as { workflow_runs?: Array<{ run_number?: number }> };
-            const latestRun = runsData.workflow_runs?.[0]?.run_number;
-            if (latestRun && latestRun > 0) {
-                newVersionCode = String(latestRun);
+        if (repoRunsRes.ok) {
+            const repoData = await repoRunsRes.json() as { workflow_runs?: Array<{ run_number?: number }> };
+            const repoRun = repoData.workflow_runs?.[0]?.run_number;
+            if (repoRun && repoRun > highestRun) {
+                highestRun = repoRun;
             }
         }
+
+        if (branchRunsRes.ok) {
+            const branchData = await branchRunsRes.json() as { workflow_runs?: Array<{ run_number?: number }> };
+            const branchRun = branchData.workflow_runs?.[0]?.run_number;
+            if (branchRun && branchRun > highestRun) {
+                highestRun = branchRun;
+            }
+        }
+
+        let newVersionCode = String(highestRun);
 
         if (pkgRes.ok) {
             const pkgData = await pkgRes.json() as { version?: string };
