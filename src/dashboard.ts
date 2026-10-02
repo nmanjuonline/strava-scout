@@ -1,4 +1,4 @@
-export const renderDashboard = (config: { domain?: string, clientId?: string, audience?: string }) => `<!doctype html>
+export const renderDashboard = (config: { domain?: string, clientId?: string, audience?: string, appEnv?: string, version?: string, versionCode?: number }) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -172,6 +172,21 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
     background: rgba(252, 82, 0, 0.15);
     color: var(--accent-light);
     border: 1px solid rgba(252, 82, 0, 0.3);
+  }
+  .badge-env-stage {
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: #f59e0b !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+  }
+  .badge-version {
+    background: var(--ghost-bg) !important;
+    color: var(--fg-muted) !important;
+    border: 1px solid var(--ghost-border) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
   }
   .nav-actions {
     display: flex;
@@ -913,7 +928,8 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
       <div class="brand-text">
         <div class="brand-title">
           Strava Watchtower
-          <span class="badge-tag">Active</span>
+          <span id="brand-env-badge" class="badge-tag badge-env-stage" style="${(config.appEnv || '').toLowerCase().includes('stage') ? '' : 'display:none;'}">Stage</span>
+          <span id="brand-version-badge" class="badge-tag badge-version">v${config.version || '1.0.0'}${config.versionCode ? ` (b${config.versionCode})` : ''}</span>
         </div>
       </div>
     </a>
@@ -1111,8 +1127,11 @@ export const renderDashboard = (config: { domain?: string, clientId?: string, au
   </section>
 </main>
 
-<footer style="text-align: center; margin-top: 48px; padding-bottom: 24px; color: var(--fg-muted); font-size: 13px;">
-  Built with ❤️ by Manju Narasimha
+<footer style="text-align: center; margin-top: 48px; padding-bottom: 24px; color: var(--fg-muted); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+  <div>
+    Strava Scout Watchtower <span id="footer-version" class="mono" style="font-weight: 600; color: var(--fg);">v${config.version || '1.0.0'}${config.versionCode ? ` (Build ${config.versionCode})` : ''}</span><span id="footer-env" style="font-weight: 600; color: #f59e0b;">${(config.appEnv || '').toLowerCase().includes('stage') ? ' · Stage' : ''}</span>
+  </div>
+  <div>Built with ❤️ by Manju Narasimha</div>
 </footer>
 
 <div class="toast-container" id="toast-container"></div>
@@ -1423,6 +1442,36 @@ async function load() {
       document.body.classList.remove('is-authenticated');
     }
 
+    // Auto-update version & environment displays
+    if (d.version) {
+      const verText = 'v' + d.version + (d.versionCode ? ' (Build ' + d.versionCode + ')' : '');
+      const brandVer = document.getElementById('brand-version-badge');
+      if (brandVer) brandVer.textContent = 'v' + d.version + (d.versionCode ? ' (b' + d.versionCode + ')' : '');
+      const footerVer = document.getElementById('footer-version');
+      if (footerVer) footerVer.textContent = verText;
+
+      if (window._lastKnownDashboardVersion && window._lastKnownDashboardVersion !== d.version) {
+        showToast('🚀 System updated to version v' + d.version, false);
+      }
+      window._lastKnownDashboardVersion = d.version;
+    }
+    if (d.environment) {
+      const isStage = d.environment.toLowerCase().includes('stage');
+      const brandEnv = document.getElementById('brand-env-badge');
+      if (brandEnv) {
+        if (isStage) {
+          brandEnv.textContent = 'Stage';
+          brandEnv.style.display = 'inline-block';
+        } else {
+          brandEnv.style.display = 'none';
+        }
+      }
+      const footerEnv = document.getElementById('footer-env');
+      if (footerEnv) {
+        footerEnv.textContent = isStage ? ' · Stage' : '';
+      }
+    }
+
     allChallenges = d.challenges || [];
     nextScanIsoTimestamp = d.nextScanAt || computeClientNextScanIso();
 
@@ -1601,6 +1650,9 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
 
 // Update countdown every 10 seconds
 setInterval(updateNextScanDisplay, 10000);
+
+// Auto-refresh status & version every 30 seconds
+setInterval(load, 30000);
 
 // View Toggle
 const defaultView = window.innerWidth <= 768 ? 'grid' : 'list';

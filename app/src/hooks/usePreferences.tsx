@@ -55,7 +55,7 @@ export function PreferencesProviderWrapper({ children }: { children: React.React
     AsyncStorage.setItem('activeOnly', val ? 'true' : 'false');
   }
 
-  const activeTheme = themePreference === 'system' ? deviceTheme : themePreference;
+  const activeTheme = themePreference === 'system' ? (deviceTheme === 'dark' ? 'dark' : 'light') : themePreference;
 
   if (!isReady) return null;
 

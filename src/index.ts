@@ -122,6 +122,71 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
     await db.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(key, value).run();
 }
 
+async function syncAppVersionInfo(env: Env, branch: string, force = false): Promise<{ version: string; versionCode: number }> {
+    const cachedVersion = await state(env.DB, "latest_app_version", "1.0.0");
+    const cachedVersionCode = await state(env.DB, "latest_version_code", "1");
+    const lastChecked = await state(env.DB, "latest_version_checked_at", "0");
+
+    const now = Date.now();
+    const cacheAge = now - Number(lastChecked);
+
+    // If cached within 5 minutes and already has a valid build number, return cached immediately
+    if (!force && cacheAge < 5 * 60 * 1000 && Number(cachedVersionCode) > 1) {
+        return {
+            version: cachedVersion,
+            versionCode: parseInt(cachedVersionCode, 10) || 1
+        };
+    }
+
+    // Query GitHub Actions public API for the latest successful run on this branch
+    try {
+        const ghBranch = branch === "stage" ? "stage" : "main";
+        const [runsRes, pkgRes] = await Promise.all([
+            fetch(`https://api.github.com/repos/nmanjuonline/strava-scout/actions/runs?branch=${ghBranch}&status=success&per_page=1`, {
+                headers: { "User-Agent": "StravaScout-Worker" }
+            }),
+            fetch(`https://raw.githubusercontent.com/nmanjuonline/strava-scout/${ghBranch}/app/package.json`, {
+                headers: { "User-Agent": "StravaScout-Worker" }
+            })
+        ]);
+
+        let newVersion = cachedVersion;
+        let newVersionCode = cachedVersionCode;
+
+        if (runsRes.ok) {
+            const runsData = await runsRes.json() as { workflow_runs?: Array<{ run_number?: number }> };
+            const latestRun = runsData.workflow_runs?.[0]?.run_number;
+            if (latestRun && latestRun > 0) {
+                newVersionCode = String(latestRun);
+            }
+        }
+
+        if (pkgRes.ok) {
+            const pkgData = await pkgRes.json() as { version?: string };
+            if (pkgData.version) {
+                newVersion = pkgData.version;
+            }
+        }
+
+        await Promise.all([
+            setState(env.DB, "latest_app_version", newVersion),
+            setState(env.DB, "latest_version_code", newVersionCode),
+            setState(env.DB, "latest_version_checked_at", String(now))
+        ]);
+
+        return {
+            version: newVersion,
+            versionCode: parseInt(newVersionCode, 10) || 1
+        };
+    } catch (err) {
+        console.error("Failed to query GitHub API for version:", err);
+        return {
+            version: cachedVersion,
+            versionCode: parseInt(cachedVersionCode, 10) || 1
+        };
+    }
+}
+
 async function sendTelegramAdminAlert(env: Env, request: Request, title: string, extraInfo: Record<string, string> = {}): Promise<void> {
     if (!env.TELEGRAM_ADMIN_CHAT_ID || !env.TELEGRAM_BOT_TOKEN) return;
     try {
@@ -340,7 +405,19 @@ export default {
     async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> { ctx.waitUntil(scan(env)); },
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url);
-        if (url.pathname === "/") return new Response(renderDashboard({ domain: env.AUTH0_DOMAIN, clientId: env.AUTH0_CLIENT_ID, audience: env.AUTH0_AUDIENCE }), { headers: { "content-type": "text/html;charset=UTF-8" } });
+        if (url.pathname === "/") {
+            const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+            const branch = isStage ? "stage" : "main";
+            const { version, versionCode } = await syncAppVersionInfo(env, branch);
+            return new Response(renderDashboard({ 
+                domain: env.AUTH0_DOMAIN, 
+                clientId: env.AUTH0_CLIENT_ID, 
+                audience: env.AUTH0_AUDIENCE,
+                appEnv: isStage ? "Stage" : "Production",
+                version,
+                versionCode
+            }), { headers: { "content-type": "text/html;charset=UTF-8" } });
+        }
         if (url.pathname === "/subscribe") return new Response(subscribePage, { headers: { "content-type": "text/html;charset=UTF-8" } });
 
         if (url.pathname === "/logo-v2.png" && request.method === "GET") {
@@ -361,14 +438,25 @@ export default {
         if (url.pathname.startsWith("/api/track/")) {
             const source = url.pathname.replace("/api/track/", "");
             
+            const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+            const branch = isStage ? "stage" : "main";
+            
             const trackingConfig: Record<string, { message: string, redirect: string }> = {
                 "android": {
-                    message: "App Downloaded",
-                    redirect: "https://nightly.link/nmanjuonline/strava-scout/workflows/build-android.yml/main/Strava%20Scout.zip"
+                    message: `App Downloaded (${branch})`,
+                    redirect: `https://nightly.link/nmanjuonline/strava-scout/workflows/build-android.yml/${branch}/Strava%20Scout.zip`
                 },
                 "telegram": {
-                    message: "Telegram Channel Click",
+                    message: `Telegram Channel Click (${branch})`,
                     redirect: "https://t.me/strava_scout"
+                },
+                "mail": {
+                    message: `Email Channel Click (${branch})`,
+                    redirect: "/subscribe"
+                },
+                "email": {
+                    message: `Email Channel Click (${branch})`,
+                    redirect: "/subscribe"
                 }
             };
 
@@ -386,8 +474,10 @@ export default {
                 if (!body || !body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
                     return Response.json({ error: "Invalid email address" }, { status: 400 });
                 }
+                const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+                const branch = isStage ? "stage" : "main";
                 await env.DB.prepare("INSERT INTO email_subscribers (email) VALUES (?) ON CONFLICT(email) DO NOTHING").bind(body.email).run();
-                await sendTelegramAdminAlert(env, request, "New Email Subscription", { Email: body.email });
+                await sendTelegramAdminAlert(env, request, `New Email Subscription (${branch})`, { Email: body.email });
                 return Response.json({ success: true });
             } catch (error) {
                 return Response.json({ error: "Failed to subscribe" }, { status: 500 });
@@ -399,10 +489,47 @@ export default {
                 if (!body || !body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
                     return Response.json({ error: "Invalid email address" }, { status: 400 });
                 }
+                const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+                const branch = isStage ? "stage" : "main";
                 await env.DB.prepare("DELETE FROM email_subscribers WHERE email = ?").bind(body.email).run();
+                await sendTelegramAdminAlert(env, request, `Email Unsubscribed (${branch})`, { Email: body.email });
                 return Response.json({ success: true });
             } catch (error) {
                 return Response.json({ error: "Failed to unsubscribe" }, { status: 500 });
+            }
+        }
+        if (url.pathname === "/api/version" && request.method === "GET") {
+            const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+            const branch = isStage ? "stage" : "main";
+            const force = url.searchParams.get("force") === "true";
+            
+            const { version, versionCode } = await syncAppVersionInfo(env, branch, force);
+            const releaseNotes = await state(env.DB, "latest_release_notes", "A new version of Strava Scout is available with features and performance improvements.");
+
+            return Response.json({
+                latestVersion: version,
+                version,
+                versionCode,
+                environment: isStage ? "Stage" : "Production",
+                downloadUrl: `https://${url.host}/api/track/android`,
+                releaseNotes
+            }, {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                }
+            });
+        }
+        if (url.pathname === "/api/version" && request.method === "POST") {
+            if (!(await verifyAuth(request, env))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+            try {
+                const body = await request.json() as { version?: string; versionCode?: number; releaseNotes?: string };
+                if (body.version) await setState(env.DB, "latest_app_version", body.version);
+                if (body.versionCode) await setState(env.DB, "latest_version_code", String(body.versionCode));
+                if (body.releaseNotes) await setState(env.DB, "latest_release_notes", body.releaseNotes);
+                return Response.json({ success: true });
+            } catch (error) {
+                return Response.json({ error: "Failed to update version info" }, { status: 500 });
             }
         }
         if (url.pathname === "/api/settings" && request.method === "GET") {
@@ -433,10 +560,17 @@ export default {
                 if (!body?.token || !body.token.startsWith("ExponentPushToken[")) {
                     return Response.json({ error: "Invalid Expo push token" }, { status: 400 });
                 }
+                // Save to persistent push_subscribers table
+                await env.DB.prepare(
+                    "INSERT INTO push_subscribers (token, last_seen_at) VALUES (?, datetime('now')) ON CONFLICT(token) DO UPDATE SET last_seen_at = datetime('now')"
+                ).bind(body.token).run();
+
+                // Also maintain scan_state for backward compatibility
                 await setState(env.DB, "expo_push_token", body.token);
                 console.log("Registered Expo push token:", body.token);
                 return Response.json({ success: true });
             } catch (error) {
+                console.error("Failed to register token:", error);
                 return Response.json({ error: "Failed to register token" }, { status: 500 });
             }
         }
@@ -449,26 +583,45 @@ export default {
             }
             return Response.json({ ok: true });
         }
-        if (url.pathname === "/api/status") {
-            const isAdmin = await verifyAuth(request, env);
-            const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges] = await Promise.all([
-                state(env.DB, "last_scan_at", ""),
-                state(env.DB, "next_id", env.START_ID),
-                state(env.DB, "consecutive_missing", "0"),
-                state(env.DB, "last_scan_result", "Never scanned"),
-                env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, image_url AS imageUrl, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all()
-            ]);
-            const nextScanAt = getNextScheduledScan();
+        if (url.pathname === "/api/debug") {
             return Response.json({
-                isAdmin,
-                lastScanAt,
-                nextId: isAdmin ? Number(nextId) : undefined,
-                consecutiveMissing: isAdmin ? Number(consecutiveMissing) : undefined,
-                lastScanResult: isAdmin ? lastScanResult : undefined,
-                nextScanAt,
-                cronSchedule: "0 1,5,9,13,17,21 * * *",
-                challenges: challenges.results ?? []
+                envKeys: Object.keys(env),
+                hasDB: !!env.DB,
+                dbType: typeof env.DB,
+                startId: env.START_ID,
+                auth0: !!env.AUTH0_DOMAIN
             });
+        }
+        if (url.pathname === "/api/status") {
+            try {
+                const isAdmin = await verifyAuth(request, env);
+                const isStage = env.APP_ENV === "stage" || env.APP_ENV?.startsWith("stage");
+                const branch = isStage ? "stage" : "main";
+                const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges, versionInfo] = await Promise.all([
+                    state(env.DB, "last_scan_at", ""),
+                    state(env.DB, "next_id", env.START_ID),
+                    state(env.DB, "consecutive_missing", "0"),
+                    state(env.DB, "last_scan_result", "Never scanned"),
+                    env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, image_url AS imageUrl, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all(),
+                    syncAppVersionInfo(env, branch)
+                ]);
+                const nextScanAt = getNextScheduledScan();
+                return Response.json({
+                    isAdmin,
+                    lastScanAt,
+                    nextId: isAdmin ? Number(nextId) : undefined,
+                    consecutiveMissing: isAdmin ? Number(consecutiveMissing) : undefined,
+                    lastScanResult: isAdmin ? lastScanResult : undefined,
+                    nextScanAt,
+                    cronSchedule: "0 1,5,9,13,17,21 * * *",
+                    challenges: challenges.results ?? [],
+                    version: versionInfo.version,
+                    versionCode: versionInfo.versionCode,
+                    environment: isStage ? "Stage" : "Production"
+                });
+            } catch (error: any) {
+                return Response.json({ error: "Internal Server Error in /api/status", detail: String(error.stack || error), dbPresent: !!env.DB }, { status: 500 });
+            }
         }
         const challengesMatch = url.pathname.match(/^\/api\/challenges$/);
         if (challengesMatch && request.method === "GET") {

@@ -12,6 +12,7 @@ export interface Env {
     AUTH0_CLIENT_ID?: string;
     AUTH0_AUDIENCE?: string;
     ADMIN_EMAILS?: string;
+    APP_ENV?: string;
 }
 
 export type Challenge = {
